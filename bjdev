@@ -1,0 +1,15 @@
+#!/usr/bin/env raku
+multi MAIN('db', $cmd) {
+    if $cmd eq 'up' {
+        say "spinning up postgres in Docker";
+        run <podman run --rm -d --name imageboard-pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=imageboard docker.io/library/postgres:16>;
+    }
+    if $cmd eq 'down' {
+        say "stopping postgres container";
+        run <podman stop imageboard-pg>;
+    }
+    if $cmd eq 'nuke' {
+        say "deleting DB container";
+        run <podman rm -f imageboard-pg>;
+    }
+}
