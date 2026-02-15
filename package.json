@@ -1,10 +1,8 @@
-  {
+{
   "name": "imageboard-api",
   "version": "1.0.0",
   "private": true,
-
   "type": "module",
-
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js"
@@ -14,7 +12,8 @@
     "helmet": "^8.1.0",
     "pg": "^8.18.0",
     "pino": "^10.3.1",
-    "pino-http": "^11.0.0"
+    "pino-http": "^11.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -22,4 +21,3 @@
     "nodemon": "^3.1.11"
   }
 }
-
