@@ -1,7 +1,24 @@
 import { Router } from "express";
 import { pool } from "../db.js";
-
+import { validateBody, validateParams } from "../middleware/validate.js";
+import { z } from "zod";
 const router = Router();
+
+// schema for validating thread creation
+const createThreadSchema = z.object({
+  subject: z.string().trim().min(1).max(100).optional(),
+  body: z.string().trim().min(1).max(5000),
+}).strict();
+
+// schema for validating reply
+const replySchema = z.object({
+  body: z.string().trim().min(1).max(5000),
+}).strict();
+
+const threadIdParamsSchema = z.object({
+  id: z.string().uuid(),
+}).strict();
+
 
 /**
  * app.use prepends this with /api/threads, so all routes here are relative to that
@@ -9,12 +26,13 @@ const router = Router();
  * body: { subject?: string, body: string }
  * creates a thread + first post
  */
-router.post("/", async (req, res, next) => {
+
+
+
+router.post("/", validateBody(createThreadSchema), async (req, res, next) => {
   try {
-    const { subject = null, body } = req.body ?? {};
-    if (!body || typeof body !== "string" || body.trim().length === 0) {
-      return res.status(400).json({ error: "body_required" });
-    }
+    const { subject, body } = req.validatedBody;
+    const subjectOrNull = subject ?? null;
 
     const client = await pool.connect();
     try {
@@ -23,7 +41,7 @@ router.post("/", async (req, res, next) => {
       const t = await client.query(
         `insert into threads(subject) values ($1)
          returning id, subject, created_at, bumped_at`,
-        [subject]
+        [subjectOrNull]
       );
 
       const thread = t.rows[0];
@@ -35,7 +53,6 @@ router.post("/", async (req, res, next) => {
       );
 
       await client.query("commit");
-
       res.status(201).json({ thread, firstPost: p.rows[0] });
     } catch (e) {
       await client.query("rollback");
@@ -47,6 +64,7 @@ router.post("/", async (req, res, next) => {
     next(err);
   }
 });
+
 
 /**
  * GET /api/threads
@@ -97,50 +115,57 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
+
+
 /**
  * POST /api/threads/:id/replies
  * body: { body: string }
  */
-router.post("/:id/replies", async (req, res, next) => {
-  try {
-    const threadId = req.params.id;
-    const { body } = req.body ?? {};
-    if (!body || typeof body !== "string" || body.trim().length === 0) {
-      return res.status(400).json({ error: "body_required" });
-    }
 
-    const client = await pool.connect();
+
+router.post(
+  "/:id/replies",
+  validateParams(threadIdParamsSchema),
+  validateBody(replySchema),
+  async (req, res, next) => {
     try {
-      await client.query("begin");
+      const { id: threadId } = req.validatedParams;
+      const { body } = req.validatedBody;
 
-      const p = await client.query(
-        `insert into posts(thread_id, body) values ($1, $2)
-         returning id, thread_id, created_at, body`,
-        [threadId, body]
-      );
+      const client = await pool.connect();
+      try {
+        await client.query("begin");
 
-      // bump thread
-      const b = await client.query(
-        `update threads set bumped_at = now()
-         where id = $1`,
-        [threadId]
-      );
-      if (b.rowCount === 0) {
+        const p = await client.query(
+          `insert into posts(thread_id, body) values ($1, $2)
+           returning id, thread_id, created_at, body`,
+          [threadId, body]
+        );
+
+        const b = await client.query(
+          `update threads set bumped_at = now()
+           where id = $1`,
+          [threadId]
+        );
+
+        if (b.rowCount === 0) {
+          await client.query("rollback");
+          return res.status(404).json({ error: "not_found" });
+        }
+
+        await client.query("commit");
+        res.status(201).json({ post: p.rows[0] });
+      } catch (e) {
         await client.query("rollback");
-        return res.status(404).json({ error: "not_found" });
+        throw e;
+      } finally {
+        client.release();
       }
-
-      await client.query("commit");
-      res.status(201).json({ post: p.rows[0] });
-    } catch (e) {
-      await client.query("rollback");
-      throw e;
-    } finally {
-      client.release();
+    } catch (err) {
+      next(err);
     }
-  } catch (err) {
-    next(err);
   }
-});
+);
+
 
 export default router;
