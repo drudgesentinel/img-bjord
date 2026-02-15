@@ -1,16 +1,86 @@
 #!/usr/bin/env raku
-# The 'db' command is for managing the Postgres database container.
+
+my constant $CONTAINER = 'imageboard-pg';
+my constant $IMAGE     = 'docker.io/library/postgres:16';
+
+sub run-or-die(@cmd, :$ok-exitcodes = (0)) {
+    my $proc = run @cmd;
+    unless $proc.exitcode ∈ $ok-exitcodes {
+        note "Command failed: {@cmd.join(' ')}";
+        note "Exit code: {$proc.exitcode}";
+        exit $proc.exitcode;
+    }
+    $proc
+}
+
+sub container-exists() returns Bool {
+    my $p = run <podman container exists>, $CONTAINER;
+    $p.exitcode == 0
+}
+
+sub container-running() returns Bool {
+    my $p = run <podman inspect -f {{.State.Running}}>, $CONTAINER, :out, :err;
+    return False unless $p.exitcode == 0;
+    # "run" doesn't capture output unless we pipe; simplest is to use exit code + start logic.
+    # We'll just attempt start and ignore "already started" cases elsewhere.
+    True
+}
+
+sub ensure-db-up() {
+    if container-exists() {
+        # Start it if it's stopped. If it's already running, podman start exits 0 too.
+        run-or-die <podman start>, $CONTAINER;
+    } else {
+        run-or-die <
+            podman run --rm -d
+            --name imageboard-pg
+            -p 5432:5432
+            -e POSTGRES_PASSWORD=postgres
+            -e POSTGRES_DB=imageboard
+        >, $IMAGE;
+    }
+}
+
+sub wait-for-db(:$timeout = 30) {
+    say "waiting for postgres to be ready...";
+    for 1..$timeout -> $i {
+        my $p = run <podman exec>, $CONTAINER, <pg_isready -U postgres>, :out, :err;
+        if $p.exitcode == 0 {
+            say "postgres is ready.";
+            return;
+        }
+        sleep 1;
+    }
+    note "postgres did not become ready within {$timeout}s";
+    exit 1;
+}
+
 multi MAIN('db', $cmd) {
-    if $cmd eq any <up start> {
-        say "spinning up postgres in Docker";
-        run <podman run --rm -d --name imageboard-pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=imageboard docker.io/library/postgres:16>;
-    }
-    if $cmd eq any <d down stop> {
-        say "stopping postgres container";
-        run <podman stop imageboard-pg>;
-    }
-    if $cmd eq any <nuke delete> {
-        say "deleting DB container";
-        run <podman rm -f imageboard-pg>;
+    given $cmd {
+        when any <up start> {
+            say "bringing up postgres (podman)";
+
+            ensure-db-up();
+            wait-for-db();
+
+            say "applying schema";
+            run-or-die <./scripts/db-init.sh>;
+        }
+
+        when any <down stop> {
+            say "stopping postgres container (if running)";
+            # ok if it's already stopped / missing
+            run-or-die <podman stop>, $CONTAINER, :ok-exitcodes(0, 125);
+        }
+
+        when any <nuke delete> {
+            say "deleting postgres container (if exists)";
+            run-or-die <podman rm -f>, $CONTAINER, :ok-exitcodes(0, 125);
+        }
+
+        default {
+            note "Unknown db command: $cmd";
+            exit 1;
+        }
     }
 }
