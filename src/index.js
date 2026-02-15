@@ -1,6 +1,7 @@
 import express from "express";
 import helmet from "helmet";
 import pino from "pino-http";
+import "dotenv/config";
 import healthRouter from "./routes/health.js";
 import threadsRouter from "./routes/threads.js";
 
