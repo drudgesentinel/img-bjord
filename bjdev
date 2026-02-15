@@ -66,7 +66,9 @@ multi MAIN('db', $cmd) {
             say "applying schema";
             run-or-die <./scripts/db-init.sh>;
         }
-
+        # The :ok-exitcodes(0,125) bit is there because Podman commonly returns 125 when a container
+        # doesn’t exist / can’t be operated on. This makes down/nuke “no-op safe”.
+        # by this i mean it does nothing if the container state is already what we want
         when any <down stop> {
             say "stopping postgres container (if running)";
             # ok if it's already stopped / missing
