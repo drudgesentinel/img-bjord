@@ -1,0 +1,31 @@
+# deps
+node_modules/
+
+# env / secrets
+.env
+.env.*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# runtime / temp
+tmp/
+temp/
+*.tmp
+
+# coverage
+coverage/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Optional: if you later store uploads locally
+data/
+
