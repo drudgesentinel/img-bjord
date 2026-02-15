@@ -5,7 +5,7 @@ multi MAIN('db', $cmd) {
         say "spinning up postgres in Docker";
         run <podman run --rm -d --name imageboard-pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=imageboard docker.io/library/postgres:16>;
     }
-    if $cmd eq any <down stop> {
+    if $cmd eq any <d down stop> {
         say "stopping postgres container";
         run <podman stop imageboard-pg>;
     }
