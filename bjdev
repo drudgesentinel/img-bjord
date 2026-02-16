@@ -2,9 +2,9 @@
 
 my constant $CONTAINER = 'imageboard-pg';
 my constant $IMAGE     = 'docker.io/library/postgres:16';
-
-sub run-or-die(@cmd, :$ok-exitcodes = (0)) {
-    my $proc = run @cmd;
+# the colon implies it's a named parameter, not positional
+sub run-or-die(*@cmd, :$ok-exitcodes = (0)) {
+    my $proc = run |@cmd;
     unless $proc.exitcode ∈ $ok-exitcodes {
         note "Command failed: {@cmd.join(' ')}";
         note "Exit code: {$proc.exitcode}";
