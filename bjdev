@@ -31,13 +31,15 @@ sub ensure-db-up() {
         # Start it if it's stopped. If it's already running, podman start exits 0 too.
         run-or-die <podman start>, $CONTAINER;
     } else {
-        run-or-die <
+        my @cmd =  <
             podman run --rm -d
             --name imageboard-pg
             -p 5432:5432
             -e POSTGRES_PASSWORD=postgres
             -e POSTGRES_DB=imageboard
-        >, $IMAGE;
+        >;
+        @cmd.push($IMAGE);
+        run-or-die @cmd;
     }
 }
 
