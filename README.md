@@ -1,4 +1,3 @@
-You can spin up the dev DB container, stop it, or wipe it with the following commands respectively:
-bjdev db up
-bjdev db down
-bjdev db nuke
+This is an image board written in Javascript.
+
+The goal is to make it easy to host, and easy to use.
