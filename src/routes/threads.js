@@ -136,22 +136,27 @@ router.post(
       try {
         await client.query("begin");
 
+        // Ensure thread exists (and lock it so this is consistent inside the tx)
+        const exists = await client.query(
+          `select 1 from threads where id = $1 for update`,
+          [threadId]
+        );
+        if (exists.rowCount === 0) {
+          await client.query("rollback");
+          return res.status(404).json({ error: "not_found" });
+        }
+
         const p = await client.query(
           `insert into posts(thread_id, body) values ($1, $2)
            returning id, thread_id, created_at, body`,
           [threadId, body]
         );
 
-        const b = await client.query(
+        await client.query(
           `update threads set bumped_at = now()
            where id = $1`,
           [threadId]
         );
-
-        if (b.rowCount === 0) {
-          await client.query("rollback");
-          return res.status(404).json({ error: "not_found" });
-        }
 
         await client.query("commit");
         res.status(201).json({ post: p.rows[0] });
@@ -166,6 +171,7 @@ router.post(
     }
   }
 );
+
 
 
 export default router;
