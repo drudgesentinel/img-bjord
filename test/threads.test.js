@@ -104,4 +104,50 @@ describe("threads", () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("validation_error");
   });
+  it("GET /api/threads/:id returns 404 when not found", async () => {
+  const res = await request(app).get(
+    "/api/threads/00000000-0000-0000-0000-000000000000"
+  );
+
+  expect(res.status).toBe(404);
+  expect(res.body.error).toBe("not_found");
+});
+
+it("POST /api/threads/:id/replies returns 404 when thread not found", async () => {
+  const res = await request(app)
+    .post("/api/threads/00000000-0000-0000-0000-000000000000/replies")
+    .set("content-type", "application/json")
+    .send({ body: "hi" });
+
+  expect(res.status).toBe(404);
+  expect(res.body.error).toBe("not_found");
+});
+
+it("POST /api/threads rejects extra fields (strict schema)", async () => {
+  const res = await request(app)
+    .post("/api/threads")
+    .set("content-type", "application/json")
+    .send({ subject: "s", body: "b", extra: 123 });
+
+  expect(res.status).toBe(400);
+  expect(res.body.error).toBe("validation_error");
+});
+
+it("POST /api/threads/:id/replies rejects blank body", async () => {
+  const createRes = await request(app)
+    .post("/api/threads")
+    .set("content-type", "application/json")
+    .send({ subject: "t", body: "op" });
+
+  const threadId = createRes.body.thread.id;
+
+  const res = await request(app)
+    .post(`/api/threads/${threadId}/replies`)
+    .set("content-type", "application/json")
+    .send({ body: "   " });
+
+  expect(res.status).toBe(400);
+  expect(res.body.error).toBe("validation_error");
+});
+
 });
