@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "dev": "DEBUG=true nodemon src/index.js",
-    "start": "node src/index.js",
-    "test": "vitest",
-    "test:watch": "vitest --watch"
-  },
+"scripts": {
+  "dev": "nodemon src/index.js",
+  "start": "node src/index.js",
+  "test": "vitest --sequence.concurrent false --fileParallelism false",
+  "test:watch": "vitest --watch --sequence.concurrent false --fileParallelism false"
+},
   "dependencies": {
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
@@ -25,4 +25,5 @@
     "supertest": "^7.2.2",
     "vitest": "^4.0.18"
   }
+
 }
