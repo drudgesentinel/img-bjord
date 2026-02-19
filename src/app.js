@@ -4,6 +4,8 @@ import pino from "pino-http";
 
 import healthRouter from "./routes/health.js";
 import threadsRouter from "./routes/threads.js";
+import boardsRouter from "./routes/boards.js";
+
 
 // moved the app logic here so it can be imported for tests
 export function createApp() {
@@ -25,12 +27,13 @@ export function createApp() {
       next();
     });
   }
-
+ 
   app.use(helmet());
   app.use(pino());
   app.use(express.json({ limit: "64kb" }));
 
   app.use(healthRouter);
+  app.use("/api/boards", boardsRouter);
   app.use("/api/threads", threadsRouter);
 
   app.use((err, req, res, next) => {
