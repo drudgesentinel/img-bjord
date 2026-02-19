@@ -1,15 +1,13 @@
 import "dotenv/config";
 import { pool } from "../src/db.js";
 
-let closed = false;
-
 export async function dbPing() {
   await pool.query("select 1");
 }
 
 export async function dbReset() {
-  // posts depends on threads; cascade makes it easy
-  await pool.query("truncate table posts, threads restart identity cascade");
+  // reset everything we currently use
+  await pool.query("truncate table posts, threads, boards restart identity cascade");
 }
 
 export async function ensureBoard(slug = "b", name = "Random") {
@@ -21,8 +19,7 @@ export async function ensureBoard(slug = "b", name = "Random") {
   );
 }
 
-// export async function dbClose() {
-//   if (closed) return;
-//   closed = true;
-//   await pool.end();
-// }
+// NOTE: don't call pool.end() from individual test files; it can break other suites.
+export async function dbClose() {
+  // no-op on purpose
+}

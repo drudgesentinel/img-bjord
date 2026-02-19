@@ -11,10 +11,11 @@ describe.sequential("boards", () => {
     await dbPing();
   });
 
-  beforeEach(async () => {
-    await dbReset();
-    await ensureBoard("b", "Random");
-  });
+beforeEach(async () => {
+  await dbReset();
+  await ensureBoard("b", "Random");
+});
+
 
 //   afterAll(async () => {
 //     await dbClose();
