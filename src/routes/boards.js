@@ -2,6 +2,17 @@ import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../db.js";
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
+import crypto from "node:crypto";
+
+// ~12 chars, URL-safe, no deps
+function makeThreadSlug() {
+  return crypto.randomBytes(9).toString("base64url");
+}
+
+function isUniqueViolation(err) {
+  // pg unique_violation
+  return err && err.code === "23505";
+}
 
 const router = Router();
 
