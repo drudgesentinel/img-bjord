@@ -11,9 +11,9 @@ describe("smoke", () => {
     await dbPing(); // fail fast if DB isn’t reachable
   });
 
-  afterAll(async () => {
-    await dbClose();
-  });
+  // afterAll(async () => {
+  //   await dbClose();
+  // });
 
   it("GET /healthz returns ok", async () => {
     const res = await request(app).get("/healthz");
