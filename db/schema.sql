@@ -16,17 +16,22 @@ on conflict (slug) do nothing;
 create table if not exists threads (
   id uuid primary key default gen_random_uuid(),
   board_slug text,
+  slug text,
   subject text,
   created_at timestamptz not null default now(),
   bumped_at timestamptz not null default now(),
   next_post_number integer not null default 1
 );
 
--- add board_slug if missing (in case table existed older)
+-- add board_slug if missing
 alter table threads
   add column if not exists board_slug text;
 
--- backfill existing threads to default board (safe to re-run)
+-- add slug if missing
+alter table threads
+  add column if not exists slug text;
+
+-- backfill existing threads to default board
 update threads
 set board_slug = 'b'
 where board_slug is null;
@@ -46,20 +51,17 @@ begin
   end if;
 end$$;
 
--- add next_post_number if missing
+-- add next_post_number if missing + backfill
 alter table threads
   add column if not exists next_post_number integer;
 
--- ensure next_post_number has a default
 alter table threads
   alter column next_post_number set default 1;
 
--- backfill next_post_number if null
 update threads
 set next_post_number = 1
 where next_post_number is null;
 
--- make next_post_number required (guarded)
 do $$
 begin
   if exists (
@@ -74,7 +76,7 @@ begin
   end if;
 end$$;
 
--- FK to boards (idempotent via guard)
+-- FK to boards (idempotent)
 do $$
 begin
   if not exists (
@@ -98,19 +100,13 @@ create table if not exists posts (
   body text not null
 );
 
--- add post_number if missing
 alter table posts
   add column if not exists post_number integer;
 
--- backfill post_number for existing rows (deterministic by created_at, then id)
--- This is "best effort" for old data.
+-- backfill post_number if needed
 do $$
 begin
-  if exists (
-    select 1
-    from posts
-    where post_number is null
-  ) then
+  if exists (select 1 from posts where post_number is null) then
     with numbered as (
       select
         id,
@@ -141,7 +137,7 @@ begin
   end if;
 end$$;
 
--- unique per thread (guarded)
+-- unique per thread (idempotent)
 do $$
 begin
   if not exists (
@@ -154,8 +150,22 @@ begin
   end if;
 end$$;
 
+-- IMPORTANT: slug uniqueness per board (idempotent)
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'threads_board_slug_uk'
+  ) then
+    alter table threads
+      add constraint threads_board_slug_uk unique (board_slug, slug);
+  end if;
+end$$;
+
 -- indexes
 create index if not exists posts_thread_id_created_at on posts(thread_id, created_at);
 create index if not exists posts_thread_id_post_number on posts(thread_id, post_number);
 create index if not exists threads_bumped_at on threads(bumped_at desc);
 create index if not exists threads_board_bumped_idx on threads (board_slug, bumped_at desc);
+create index if not exists threads_board_slug_idx on threads (board_slug, slug);

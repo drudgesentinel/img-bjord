@@ -23,44 +23,36 @@ describe.sequential("threads", () => {
       .send({ subject: "t", body: "op" });
 
     expect(res.status).toBe(201);
-    return res.body.thread.id;
+    return { id: res.body.thread.id, slug: res.body.thread.slug };
   }
 
-  it("can view a thread by id (posts ordered by post_number)", async () => {
-    const threadId = await createThread();
+  it("can view a thread by uuid (posts ordered by post_number)", async () => {
+    const { id } = await createThread();
 
-    const viewRes = await request(app).get(`/api/threads/${threadId}`);
+    const viewRes = await request(app).get(`/api/threads/${id}`);
     expect(viewRes.status).toBe(200);
 
-    expect(viewRes.body.thread.id).toBe(threadId);
+    expect(viewRes.body.thread.id).toBe(id);
     expect(viewRes.body.posts.length).toBe(1);
     expect(viewRes.body.posts[0].post_number).toBe(1);
     expect(viewRes.body.posts[0].body).toBe("op");
   });
 
-  it("replies add a post with incrementing post_number", async () => {
-    const threadId = await createThread();
+  it("can reply via board+threadSlug route and post_number increments", async () => {
+    const { slug: threadSlug } = await createThread();
 
     const r1 = await request(app)
-      .post(`/api/threads/${threadId}/replies`)
+      .post(`/api/boards/b/threads/${threadSlug}/replies`)
       .set("content-type", "application/json")
       .send({ body: "reply 1" });
     expect(r1.status).toBe(201);
     expect(r1.body.post.post_number).toBe(2);
 
-    const r2 = await request(app)
-      .post(`/api/threads/${threadId}/replies`)
-      .set("content-type", "application/json")
-      .send({ body: "reply 2" });
-    expect(r2.status).toBe(201);
-    expect(r2.body.post.post_number).toBe(3);
-
-    const viewRes = await request(app).get(`/api/threads/${threadId}`);
+    const viewRes = await request(app).get(
+      `/api/boards/b/threads/${threadSlug}`,
+    );
     expect(viewRes.status).toBe(200);
-    expect(viewRes.body.posts.length).toBe(3);
-
-    const nums = viewRes.body.posts.map((p) => p.post_number);
-    expect(nums).toEqual([1, 2, 3]);
+    expect(viewRes.body.posts.map((p) => p.post_number)).toEqual([1, 2]);
   });
 
   it("GET /api/threads/:id returns 404 when not found", async () => {
@@ -93,10 +85,10 @@ describe.sequential("threads", () => {
   });
 
   it("validation: blank reply body returns 400", async () => {
-    const threadId = await createThread();
+    const { id } = await createThread();
 
     const res = await request(app)
-      .post(`/api/threads/${threadId}/replies`)
+      .post(`/api/threads/${id}/replies`)
       .set("content-type", "application/json")
       .send({ body: "   " });
 

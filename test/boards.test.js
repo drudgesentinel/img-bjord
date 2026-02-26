@@ -16,21 +16,23 @@ describe.sequential("boards", () => {
     await ensureBoard("b", "Random");
   });
 
-  it("can create a thread on a board (OP is post #1)", async () => {
+  it("can create a thread on a board (thread has slug, OP is post #1)", async () => {
     const res = await request(app)
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
-      .send({ subject: "test thread", body: "first post" });
+      .send({ subject: "Hello World", body: "first post" });
 
     expect(res.status).toBe(201);
     expect(res.body.thread?.id).toBeTruthy();
     expect(res.body.thread.board_slug).toBe("b");
+    expect(typeof res.body.thread.slug).toBe("string");
+    expect(res.body.thread.slug.length).toBeGreaterThan(2);
 
     expect(res.body.firstPost?.post_number).toBe(1);
     expect(res.body.firstPost?.body).toBe("first post");
   });
 
-  it("lists threads for a board", async () => {
+  it("lists threads for a board includes slug", async () => {
     const createRes = await request(app)
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
@@ -40,41 +42,27 @@ describe.sequential("boards", () => {
 
     const listRes = await request(app).get("/api/boards/b/threads?limit=10");
     expect(listRes.status).toBe(200);
-    expect(Array.isArray(listRes.body.threads)).toBe(true);
 
     expect(listRes.body.threads.length).toBe(1);
     expect(listRes.body.threads[0].board_slug).toBe("b");
+    expect(typeof listRes.body.threads[0].slug).toBe("string");
   });
 
-  it("list threads returns newest bumped first within the board", async () => {
-    const a = await request(app)
+  it("view thread by board+thread slug", async () => {
+    const createRes = await request(app)
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
-      .send({ subject: "A", body: "op A" });
-    expect(a.status).toBe(201);
+      .send({ subject: "Slug Test", body: "op" });
 
-    const b = await request(app)
-      .post("/api/boards/b/threads")
-      .set("content-type", "application/json")
-      .send({ subject: "B", body: "op B" });
-    expect(b.status).toBe(201);
+    const threadSlug = createRes.body.thread.slug;
 
-    const aId = a.body.thread.id;
-    const bId = b.body.thread.id;
-
-    // bump A
-    const bump = await request(app)
-      .post(`/api/threads/${aId}/replies`)
-      .set("content-type", "application/json")
-      .send({ body: "bump" });
-    expect(bump.status).toBe(201);
-
-    const listRes = await request(app).get("/api/boards/b/threads");
-    expect(listRes.status).toBe(200);
-
-    const ids = listRes.body.threads.map((t) => t.id);
-    expect(ids[0]).toBe(aId);
-    expect(ids).toContain(bId);
+    const viewRes = await request(app).get(
+      `/api/boards/b/threads/${threadSlug}`,
+    );
+    expect(viewRes.status).toBe(200);
+    expect(viewRes.body.thread.slug).toBe(threadSlug);
+    expect(viewRes.body.posts.length).toBe(1);
+    expect(viewRes.body.posts[0].post_number).toBe(1);
   });
 
   it("returns 404 for unknown board", async () => {

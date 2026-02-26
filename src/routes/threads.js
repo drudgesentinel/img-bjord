@@ -15,7 +15,7 @@ const replySchema = z
 
 /**
  * GET /api/threads/:id
- * returns thread + posts
+ * returns thread + posts (uuid route)
  */
 router.get(
   "/:id",
@@ -25,7 +25,7 @@ router.get(
       const { id: threadId } = req.validatedParams;
 
       const t = await pool.query(
-        `select id, board_slug, subject, created_at, bumped_at
+        `select id, board_slug, slug, subject, created_at, bumped_at
        from threads
        where id = $1`,
         [threadId],
@@ -49,7 +49,7 @@ router.get(
 
 /**
  * POST /api/threads/:id/replies
- * body: { body: string }
+ * reply by thread UUID
  */
 router.post(
   "/:id/replies",
@@ -64,7 +64,6 @@ router.post(
       try {
         await client.query("begin");
 
-        // Lock the thread row and take the next post number
         const t = await client.query(
           `select next_post_number
            from threads
@@ -87,7 +86,6 @@ router.post(
           [threadId, postNumber, body],
         );
 
-        // bump + increment counter
         await client.query(
           `update threads
            set bumped_at = now(),
