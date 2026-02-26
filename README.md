@@ -4,3 +4,5 @@ The goal is to make it easy to host, and easy to use.
 
 .env should contain your DB URL, something like:
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/imageboard
+
+You need podman installed for things to work out of the box
