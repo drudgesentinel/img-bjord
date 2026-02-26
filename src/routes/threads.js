@@ -5,16 +5,11 @@ import { z } from "zod";
 
 const router = Router();
 
-// schema for validating reply
+const threadIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
+
 const replySchema = z
   .object({
     body: z.string().trim().min(1).max(5000),
-  })
-  .strict();
-
-const threadIdParamsSchema = z
-  .object({
-    id: z.string().uuid(),
   })
   .strict();
 
@@ -22,31 +17,35 @@ const threadIdParamsSchema = z
  * GET /api/threads/:id
  * returns thread + posts
  */
-router.get("/:id", async (req, res, next) => {
-  try {
-    const threadId = req.params.id;
+router.get(
+  "/:id",
+  validateParams(threadIdParamsSchema),
+  async (req, res, next) => {
+    try {
+      const { id: threadId } = req.validatedParams;
 
-    const t = await pool.query(
-      `select id, board_slug, subject, created_at, bumped_at
+      const t = await pool.query(
+        `select id, board_slug, subject, created_at, bumped_at
        from threads
        where id = $1`,
-      [threadId]
-    );
-    if (t.rowCount === 0) return res.status(404).json({ error: "not_found" });
+        [threadId],
+      );
+      if (t.rowCount === 0) return res.status(404).json({ error: "not_found" });
 
-    const p = await pool.query(
-      `select id, thread_id, created_at, body
+      const p = await pool.query(
+        `select id, thread_id, post_number, created_at, body
        from posts
        where thread_id = $1
-       order by created_at asc`,
-      [threadId]
-    );
+       order by post_number asc`,
+        [threadId],
+      );
 
-    res.json({ thread: t.rows[0], posts: p.rows });
-  } catch (err) {
-    next(err);
-  }
-});
+      res.json({ thread: t.rows[0], posts: p.rows });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 /**
  * POST /api/threads/:id/replies
@@ -65,26 +64,36 @@ router.post(
       try {
         await client.query("begin");
 
-        // Ensure thread exists (and lock it so this is consistent inside the tx)
-        const exists = await client.query(
-          `select 1 from threads where id = $1 for update`,
-          [threadId]
+        // Lock the thread row and take the next post number
+        const t = await client.query(
+          `select next_post_number
+           from threads
+           where id = $1
+           for update`,
+          [threadId],
         );
-        if (exists.rowCount === 0) {
+
+        if (t.rowCount === 0) {
           await client.query("rollback");
           return res.status(404).json({ error: "not_found" });
         }
 
+        const postNumber = t.rows[0].next_post_number;
+
         const p = await client.query(
-          `insert into posts(thread_id, body) values ($1, $2)
-           returning id, thread_id, created_at, body`,
-          [threadId, body]
+          `insert into posts(thread_id, post_number, body)
+           values ($1, $2, $3)
+           returning id, thread_id, post_number, created_at, body`,
+          [threadId, postNumber, body],
         );
 
+        // bump + increment counter
         await client.query(
-          `update threads set bumped_at = now()
+          `update threads
+           set bumped_at = now(),
+               next_post_number = next_post_number + 1
            where id = $1`,
-          [threadId]
+          [threadId],
         );
 
         await client.query("commit");
@@ -98,7 +107,7 @@ router.post(
     } catch (err) {
       next(err);
     }
-  }
+  },
 );
 
 export default router;

@@ -6,8 +6,9 @@ export async function dbPing() {
 }
 
 export async function dbReset() {
-  // reset everything we currently use
-  await pool.query("truncate table posts, threads, boards restart identity cascade");
+  await pool.query(
+    "truncate table posts, threads, boards restart identity cascade",
+  );
 }
 
 export async function ensureBoard(slug = "b", name = "Random") {
@@ -15,11 +16,9 @@ export async function ensureBoard(slug = "b", name = "Random") {
     `insert into boards (slug, name)
      values ($1, $2)
      on conflict (slug) do nothing`,
-    [slug, name]
+    [slug, name],
   );
 }
 
-// NOTE: don't call pool.end() from individual test files; it can break other suites.
-export async function dbClose() {
-  // no-op on purpose
-}
+// no-op by design; don't pool.end() from individual files
+export async function dbClose() {}

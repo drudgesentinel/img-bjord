@@ -1,8 +1,8 @@
 import "dotenv/config";
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { dbPing, dbReset, ensureBoard, dbClose } from "./_db.js";
+import { dbPing, dbReset, ensureBoard } from "./_db.js";
 
 describe.sequential("boards", () => {
   const app = createApp();
@@ -11,17 +11,12 @@ describe.sequential("boards", () => {
     await dbPing();
   });
 
-beforeEach(async () => {
-  await dbReset();
-  await ensureBoard("b", "Random");
-});
+  beforeEach(async () => {
+    await dbReset();
+    await ensureBoard("b", "Random");
+  });
 
-
-//   afterAll(async () => {
-//     await dbClose();
-//   });
-
-  it("can create a thread on a board", async () => {
+  it("can create a thread on a board (OP is post #1)", async () => {
     const res = await request(app)
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
@@ -30,6 +25,9 @@ beforeEach(async () => {
     expect(res.status).toBe(201);
     expect(res.body.thread?.id).toBeTruthy();
     expect(res.body.thread.board_slug).toBe("b");
+
+    expect(res.body.firstPost?.post_number).toBe(1);
+    expect(res.body.firstPost?.body).toBe("first post");
   });
 
   it("lists threads for a board", async () => {
@@ -38,7 +36,6 @@ beforeEach(async () => {
       .set("content-type", "application/json")
       .send({ subject: "A", body: "op A" });
 
-    // critical: ensure creation succeeded
     expect(createRes.status).toBe(201);
 
     const listRes = await request(app).get("/api/boards/b/threads?limit=10");
@@ -65,6 +62,7 @@ beforeEach(async () => {
     const aId = a.body.thread.id;
     const bId = b.body.thread.id;
 
+    // bump A
     const bump = await request(app)
       .post(`/api/threads/${aId}/replies`)
       .set("content-type", "application/json")
