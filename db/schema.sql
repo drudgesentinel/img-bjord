@@ -7,83 +7,35 @@ create table if not exists boards (
   created_at timestamptz not null default now()
 );
 
--- seed at least one board (idempotent)
-insert into boards (slug, name)
-values ('b', 'Random')
-on conflict (slug) do nothing;
-
--- threads
+-- threads (no legacy slug)
 create table if not exists threads (
   id uuid primary key default gen_random_uuid(),
-  board_slug text,
-  slug text,
+
+  board_slug text not null,
+  subject_slug text not null,
+  token text not null,
+
   subject text,
+
   created_at timestamptz not null default now(),
   bumped_at timestamptz not null default now(),
+
   next_post_number integer not null default 1
 );
 
--- add board_slug if missing
-alter table threads
-  add column if not exists board_slug text;
+-- posts
+create table if not exists posts (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid not null references threads(id) on delete cascade,
+  post_number integer not null,
+  created_at timestamptz not null default now(),
+  body text not null
+);
 
--- add slug if missing
-alter table threads
-  add column if not exists slug text;
-
--- backfill existing threads to default board
-update threads
-set board_slug = 'b'
-where board_slug is null;
-
--- make board_slug required (guarded)
+-- FK threads.board_slug -> boards.slug (idempotent)
 do $$
 begin
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_name = 'threads'
-      and column_name = 'board_slug'
-      and is_nullable = 'YES'
-  ) then
-    alter table threads
-      alter column board_slug set not null;
-  end if;
-end$$;
-
--- add next_post_number if missing + backfill
-alter table threads
-  add column if not exists next_post_number integer;
-
-alter table threads
-  alter column next_post_number set default 1;
-
-update threads
-set next_post_number = 1
-where next_post_number is null;
-
-do $$
-begin
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_name = 'threads'
-      and column_name = 'next_post_number'
-      and is_nullable = 'YES'
-  ) then
-    alter table threads
-      alter column next_post_number set not null;
-  end if;
-end$$;
-
--- FK to boards (idempotent)
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'threads_board_fk'
-  ) then
+  if not exists (select 1 from pg_constraint where conname = 'threads_board_fk') then
     alter table threads
       add constraint threads_board_fk
       foreign key (board_slug) references boards(slug)
@@ -91,81 +43,26 @@ begin
   end if;
 end$$;
 
--- posts
-create table if not exists posts (
-  id uuid primary key default gen_random_uuid(),
-  thread_id uuid not null references threads(id) on delete cascade,
-  post_number integer,
-  created_at timestamptz not null default now(),
-  body text not null
-);
-
-alter table posts
-  add column if not exists post_number integer;
-
--- backfill post_number if needed
+-- unique token per board (idempotent)
 do $$
 begin
-  if exists (select 1 from posts where post_number is null) then
-    with numbered as (
-      select
-        id,
-        thread_id,
-        row_number() over (partition by thread_id order by created_at asc, id asc) as rn
-      from posts
-      where post_number is null
-    )
-    update posts p
-    set post_number = n.rn
-    from numbered n
-    where p.id = n.id;
-  end if;
-end$$;
-
--- make post_number required (guarded)
-do $$
-begin
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_name = 'posts'
-      and column_name = 'post_number'
-      and is_nullable = 'YES'
-  ) then
-    alter table posts
-      alter column post_number set not null;
-  end if;
-end$$;
-
--- unique per thread (idempotent)
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'posts_thread_post_number_uk'
-  ) then
-    alter table posts
-      add constraint posts_thread_post_number_uk unique (thread_id, post_number);
-  end if;
-end$$;
-
--- IMPORTANT: slug uniqueness per board (idempotent)
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'threads_board_slug_uk'
-  ) then
+  if not exists (select 1 from pg_constraint where conname = 'threads_board_token_uk') then
     alter table threads
-      add constraint threads_board_slug_uk unique (board_slug, slug);
+      add constraint threads_board_token_uk unique (board_slug, token);
   end if;
 end$$;
 
 -- indexes
-create index if not exists posts_thread_id_created_at on posts(thread_id, created_at);
-create index if not exists posts_thread_id_post_number on posts(thread_id, post_number);
-create index if not exists threads_bumped_at on threads(bumped_at desc);
-create index if not exists threads_board_bumped_idx on threads (board_slug, bumped_at desc);
-create index if not exists threads_board_slug_idx on threads (board_slug, slug);
+create index if not exists posts_thread_id_post_number
+  on posts(thread_id, post_number);
+
+create index if not exists threads_board_bumped_idx
+  on threads (board_slug, bumped_at desc);
+
+create index if not exists threads_board_token_idx
+  on threads (board_slug, token);
+
+-- Seed default board
+insert into boards (slug, name)
+values ('b', 'Random')
+on conflict (slug) do nothing;

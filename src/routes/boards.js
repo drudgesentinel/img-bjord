@@ -5,6 +5,12 @@ import {
   validateParams,
   validateQuery,
 } from "../middleware/validate.js";
+import {
+  slugifySubject,
+  makeThreadToken,
+  normalizeToken,
+  isUniqueViolation,
+} from "../lib/threadSlug.js";
 import { z } from "zod";
 import crypto from "node:crypto";
 
