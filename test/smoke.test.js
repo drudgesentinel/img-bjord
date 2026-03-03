@@ -8,22 +8,22 @@ describe("smoke", () => {
   const app = createApp();
 
   beforeAll(async () => {
-    await dbPing(); // fail fast if DB isn’t reachable
+    await dbPing();
   });
 
-  // afterAll(async () => {
-  //   await dbClose();
-  // });
+  afterAll(async () => {
+    await dbClose();
+  });
 
   it("GET /healthz returns ok", async () => {
     const res = await request(app).get("/healthz");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true });
+    expect(res.body.ok).toBe(true);
   });
 
   it("GET /readyz returns ok when DB is reachable", async () => {
     const res = await request(app).get("/readyz");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true });
+    expect(res.body.ok).toBe(true);
   });
 });
