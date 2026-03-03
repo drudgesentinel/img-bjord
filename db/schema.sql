@@ -7,21 +7,28 @@ create table if not exists boards (
   created_at timestamptz not null default now()
 );
 
--- threads (no legacy slug)
+-- threads (no legacy support)
 create table if not exists threads (
   id uuid primary key default gen_random_uuid(),
 
-  board_slug text not null,
-  subject_slug text not null,
-  token text not null,
+  board_slug text not null references boards(slug) on delete restrict,
 
   subject text,
+  subject_slug text not null,
+  token text not null,
 
   created_at timestamptz not null default now(),
   bumped_at timestamptz not null default now(),
 
   next_post_number integer not null default 1
 );
+
+-- token must be unique per board
+create unique index if not exists threads_board_token_uq
+  on threads (board_slug, token);
+
+create index if not exists threads_board_bumped_idx
+  on threads (board_slug, bumped_at desc);
 
 -- posts
 create table if not exists posts (
