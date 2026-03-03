@@ -11,7 +11,8 @@ const ADJECTIVES = [
   "lonely",
   "ancient",
   "furious",
-  "bangus",
+  "gentle",
+  "ragged",
 ];
 
 const NOUNS = [
@@ -25,50 +26,33 @@ const NOUNS = [
   "lantern",
   "anvil",
   "comet",
+  "bangus",
 ];
 
-function randomInt(max) {
-  // crypto-safe selection
-  return crypto.randomInt(0, max);
-}
-
-function pick(arr) {
-  return arr[randomInt(arr.length)];
-}
-
 export function slugifySubject(subject) {
-  if (!subject) return "";
-  return subject
+  if (!subject) return "thread";
+  const s = subject
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-+/g, "-")
     .slice(0, 60);
+
+  return s || "thread";
 }
 
 /**
- * Returns a readable token like: bangus_enchilada
- * - lowercase + underscore (URL-safe)
+ * Generates a readable token like "bangus_enchilada".
+ * This is the stable identifier used in the URL.
  */
 export function makeThreadToken() {
-  return `${pick(ADJECTIVES)}_${pick(NOUNS)}`;
+  const adj = ADJECTIVES[crypto.randomInt(0, ADJECTIVES.length)];
+  const noun = NOUNS[crypto.randomInt(0, NOUNS.length)];
+  return `${adj}_${noun}`; // lowercase + underscore
 }
 
-/**
- * For display in URL path if you want shouting:
- * BANGUS_ENCHILADA
- */
-export function formatTokenForUrl(token) {
-  return token.toUpperCase();
-}
-
-/**
- * Parse incoming token segment in a forgiving way:
- * - allow upper/lower
- * - normalize to lowercase
- */
-export function normalizeToken(tokenSegment) {
-  return tokenSegment.toLowerCase();
+export function normalizeToken(token) {
+  return String(token).toLowerCase();
 }
 
 export function isUniqueViolation(err) {

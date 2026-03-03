@@ -1,40 +1,22 @@
 import { Router } from "express";
 import { pool } from "../db.js";
-import {
-  validateBody,
-  validateParams,
-  validateQuery,
-} from "../middleware/validate.js";
-import {
-  slugifySubject,
-  makeThreadToken,
-  normalizeToken,
-  isUniqueViolation,
-} from "../lib/threadSlug.js";
+import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
+import { slugifySubject, makeThreadToken, normalizeToken, isUniqueViolation } from "../lib/threadSlug.js";
 import { z } from "zod";
-import crypto from "node:crypto";
 
 const router = Router();
 
 const boardParamsSchema = z
   .object({
-    slug: z
-      .string()
-      .trim()
-      .regex(/^[a-z0-9]{1,20}$/),
+    slug: z.string().trim().regex(/^[a-z0-9]{1,20}$/),
   })
   .strict();
 
-const threadSlugParamsSchema = z
+const threadPrettyParamsSchema = z
   .object({
-    slug: z
-      .string()
-      .trim()
-      .regex(/^[a-z0-9]{1,20}$/),
-    threadSlug: z
-      .string()
-      .trim()
-      .regex(/^[a-z0-9-]{3,80}$/),
+    slug: z.string().trim().regex(/^[a-z0-9]{1,20}$/),
+    subjectSlug: z.string().trim().regex(/^[a-z0-9-]{1,80}$/),
+    token: z.string().trim().min(3).max(80),
   })
   .strict();
 
@@ -57,35 +39,6 @@ const replySchema = z
   })
   .strict();
 
-function slugifySubject(subject) {
-  // Keep it simple & predictable: lowercase, alnum -> dash, collapse dashes
-  // We also cap length to keep URLs sane.
-  const base = subject
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-+/g, "-")
-    .slice(0, 40);
-
-  return base;
-}
-
-function randomSlugPart(bytes = 4) {
-  // 4 bytes -> 8 hex chars; good enough + super simple
-  return crypto.randomBytes(bytes).toString("hex");
-}
-
-function makeThreadSlug(subject) {
-  const s = subject ? slugifySubject(subject) : "";
-  const rand = randomSlugPart(4);
-  return s ? `${s}-${rand}` : rand;
-}
-
-function isUniqueViolation(err) {
-  // Postgres unique violation
-  return err && typeof err === "object" && err.code === "23505";
-}
-
 /**
  * POST /api/boards/:slug/threads
  * creates a thread + OP post (#1)
@@ -98,33 +51,34 @@ router.post(
     try {
       const { slug: boardSlug } = req.validatedParams;
       const { subject, body } = req.validatedBody;
+
       const subjectOrNull = subject ?? null;
+      const subjectSlug = slugifySubject(subjectOrNull ?? "");
 
       const client = await pool.connect();
       try {
         await client.query("begin");
 
         // ensure board exists
-        const b = await client.query(`select 1 from boards where slug = $1`, [
-          boardSlug,
-        ]);
+        const b = await client.query(`select 1 from boards where slug = $1`, [boardSlug]);
         if (b.rowCount === 0) {
           await client.query("rollback");
           return res.status(404).json({ error: "board_not_found" });
         }
 
-        // Generate slug & retry on collisions
+        // Generate token & retry on collisions
         let threadRow = null;
 
-        for (let attempt = 0; attempt < 5; attempt++) {
-          const threadSlug = makeThreadSlug(subjectOrNull ?? "");
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const rawToken = makeThreadToken();         // e.g. "bangus_enchilada"
+          const token = normalizeToken(rawToken);     // normalize (upper/lower, separators, etc)
 
           try {
             const t = await client.query(
-              `insert into threads(board_slug, slug, subject)
-               values ($1, $2, $3)
-               returning id, board_slug, slug, subject, created_at, bumped_at`,
-              [boardSlug, threadSlug, subjectOrNull],
+              `insert into threads (board_slug, subject, subject_slug, token)
+               values ($1, $2, $3, $4)
+               returning id, board_slug, subject, subject_slug, token, created_at, bumped_at`,
+              [boardSlug, subjectOrNull, subjectSlug || "thread", token]
             );
             threadRow = t.rows[0];
             break;
@@ -145,26 +99,28 @@ router.post(
            from threads
            where id = $1
            for update`,
-          [threadRow.id],
+          [threadRow.id]
         );
         const postNumber = n.rows[0].next_post_number;
 
         const p = await client.query(
-          `insert into posts(thread_id, post_number, body)
+          `insert into posts (thread_id, post_number, body)
            values ($1, $2, $3)
            returning id, thread_id, post_number, created_at, body`,
-          [threadRow.id, postNumber, body],
+          [threadRow.id, postNumber, body]
         );
 
         await client.query(
           `update threads
            set next_post_number = next_post_number + 1
            where id = $1`,
-          [threadRow.id],
+          [threadRow.id]
         );
 
         await client.query("commit");
-        res.status(201).json({ thread: threadRow, firstPost: p.rows[0] });
+
+        const canonicalPath = `/api/boards/${threadRow.board_slug}/${threadRow.subject_slug}/${threadRow.token}`;
+        res.status(201).json({ thread: threadRow, firstPost: p.rows[0], canonicalPath });
       } catch (e) {
         await client.query("rollback");
         throw e;
@@ -174,12 +130,11 @@ router.post(
     } catch (err) {
       next(err);
     }
-  },
+  }
 );
 
 /**
  * GET /api/boards/:slug/threads?limit=...
- * list latest bumped threads for a board
  */
 router.get(
   "/:slug/threads",
@@ -187,47 +142,44 @@ router.get(
   validateQuery(listThreadsQuerySchema),
   async (req, res, next) => {
     try {
-      const { slug } = req.validatedParams;
+      const { slug: boardSlug } = req.validatedParams;
       const limit = req.validatedQuery.limit ?? 20;
 
-      const b = await pool.query(`select 1 from boards where slug = $1`, [
-        slug,
-      ]);
-      if (b.rowCount === 0)
-        return res.status(404).json({ error: "board_not_found" });
+      const b = await pool.query(`select 1 from boards where slug = $1`, [boardSlug]);
+      if (b.rowCount === 0) return res.status(404).json({ error: "board_not_found" });
 
       const r = await pool.query(
-        `select id, board_slug, slug, subject, created_at, bumped_at
+        `select id, board_slug, subject, subject_slug, token, created_at, bumped_at
          from threads
          where board_slug = $1
          order by bumped_at desc
          limit $2`,
-        [slug, limit],
+        [boardSlug, limit]
       );
 
       res.json({ threads: r.rows });
     } catch (err) {
       next(err);
     }
-  },
+  }
 );
 
 /**
- * GET /api/boards/:slug/threads/:threadSlug
- * view thread by board+slug
+ * GET /api/boards/:slug/:subjectSlug/:token
+ * view thread by board + pretty subjectSlug + token
  */
 router.get(
-  "/:slug/threads/:threadSlug",
-  validateParams(threadSlugParamsSchema),
+  "/:slug/:subjectSlug/:token",
+  validateParams(threadPrettyParamsSchema),
   async (req, res, next) => {
     try {
-      const { slug: boardSlug, threadSlug } = req.validatedParams;
+      const { slug: boardSlug, subjectSlug, token } = req.validatedParams;
 
       const t = await pool.query(
-        `select id, board_slug, slug, subject, created_at, bumped_at
+        `select id, board_slug, subject, subject_slug, token, created_at, bumped_at
          from threads
-         where board_slug = $1 and slug = $2`,
-        [boardSlug, threadSlug],
+         where board_slug = $1 and subject_slug = $2 and token = $3`,
+        [boardSlug, subjectSlug, normalizeToken(token)]
       );
 
       if (t.rowCount === 0) return res.status(404).json({ error: "not_found" });
@@ -239,40 +191,38 @@ router.get(
          from posts
          where thread_id = $1
          order by post_number asc`,
-        [thread.id],
+        [thread.id]
       );
 
       res.json({ thread, posts: p.rows });
     } catch (err) {
       next(err);
     }
-  },
+  }
 );
 
 /**
- * POST /api/boards/:slug/threads/:threadSlug/replies
- * reply via board+thread slug (more frontend friendly)
+ * POST /api/boards/:slug/:subjectSlug/:token/replies
  */
 router.post(
-  "/:slug/threads/:threadSlug/replies",
-  validateParams(threadSlugParamsSchema),
+  "/:slug/:subjectSlug/:token/replies",
+  validateParams(threadPrettyParamsSchema),
   validateBody(replySchema),
   async (req, res, next) => {
     try {
-      const { slug: boardSlug, threadSlug } = req.validatedParams;
+      const { slug: boardSlug, subjectSlug, token } = req.validatedParams;
       const { body } = req.validatedBody;
 
       const client = await pool.connect();
       try {
         await client.query("begin");
 
-        // find thread id + lock row
         const t = await client.query(
           `select id, next_post_number
            from threads
-           where board_slug = $1 and slug = $2
+           where board_slug = $1 and subject_slug = $2 and token = $3
            for update`,
-          [boardSlug, threadSlug],
+          [boardSlug, subjectSlug, normalizeToken(token)]
         );
 
         if (t.rowCount === 0) {
@@ -287,7 +237,7 @@ router.post(
           `insert into posts(thread_id, post_number, body)
            values ($1, $2, $3)
            returning id, thread_id, post_number, created_at, body`,
-          [threadId, postNumber, body],
+          [threadId, postNumber, body]
         );
 
         await client.query(
@@ -295,7 +245,7 @@ router.post(
            set bumped_at = now(),
                next_post_number = next_post_number + 1
            where id = $1`,
-          [threadId],
+          [threadId]
         );
 
         await client.query("commit");
@@ -309,7 +259,7 @@ router.post(
     } catch (err) {
       next(err);
     }
-  },
+  }
 );
 
 export default router;
