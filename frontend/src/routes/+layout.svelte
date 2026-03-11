@@ -1,11 +1,29 @@
-<script>
-	import favicon from '$lib/assets/favicon.svg';
+<header>
+  <h1>
+    <a href="/">img-bjord</a>
+  </h1>
+</header>
 
-	let { children } = $props();
-</script>
+<main>
+  <slot />
+</main>
 
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
+<style>
+  header {
+    margin-bottom: 2rem;
+  }
 
-{@render children()}
+  h1 a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  h1 a:hover {
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 800px;
+    margin: auto;
+  }
+</style>

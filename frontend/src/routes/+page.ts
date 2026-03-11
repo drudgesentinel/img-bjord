@@ -1,11 +1,19 @@
-export async function load({ fetch }) {
-  const res = await fetch('/api/boards');
+import { api } from '$lib/api';
 
-  if (!res.ok) {
-    throw new Error('Failed to load boards');
-  }
+type Board = {
+  slug: string;
+  name: string | null;
+  created_at: string;
+};
+
+type BoardsResponse = {
+  boards: Board[];
+};
+
+export async function load({ fetch }) {
+  const data = await api<BoardsResponse>(fetch, '/api/boards');
 
   return {
-    boards: await res.json()
+    boards: data.boards
   };
 }
