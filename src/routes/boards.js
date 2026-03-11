@@ -39,6 +39,20 @@ const replySchema = z
   })
   .strict();
 
+  // GET /api/boarsd
+  router.get("/", async (req, res, next) => {
+  try {
+    const r = await pool.query(
+      `select slug, name, created_at
+       from boards
+       order by slug asc`
+    );
+
+    res.json({ boards: r.rows });
+  } catch (err) {
+    next(err);
+  }
+});
 /**
  * POST /api/boards/:slug/threads
  * creates a thread + OP post (#1)
