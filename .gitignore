@@ -25,6 +25,7 @@ coverage/
 Thumbs.db
 .vscode/
 .idea/
+.github/
 
 # Optional: if you later store uploads locally
 data/
