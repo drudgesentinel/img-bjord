@@ -43,7 +43,7 @@ sub ensure-db-up() {
     }
 }
 
-sub wait-for-db(:$timeout = 30) {
+sub wait-for-db(:$timeout = 10) {
     say "waiting for postgres to be ready...";
     for 1..$timeout -> $i {
         my $p = run <podman exec>, $CONTAINER, <pg_isready -U postgres>, :out, :err;
