@@ -1,24 +1,49 @@
+<script lang="ts">
+  import { page } from '$app/state';
+
+  let { children } = $props();
+
+  const segments = $derived(page.url.pathname.split('/').filter(Boolean));
+  const board = $derived(segments[0] === 'b' ? segments[1] : null);
+  const subjectSlug = $derived(segments[2] ?? null);
+</script>
+
 <header>
-  <h1>
+  <nav class="breadcrumb">
     <a href="/">img-bjord</a>
-  </h1>
+
+    {#if board}
+      <span> / </span>
+      <a href={`/b/${board}`}>{board}</a>
+    {/if}
+
+    {#if subjectSlug}
+      <span> / </span>
+      <span>{subjectSlug}</span>
+    {/if}
+  </nav>
 </header>
 
 <main>
-  <slot />
+  {@render children()}
 </main>
 
 <style>
   header {
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
   }
 
-  h1 a {
+  .breadcrumb {
+    font-size: 1.4rem;
+    font-weight: bold;
+  }
+
+  .breadcrumb a {
     text-decoration: none;
     color: inherit;
   }
 
-  h1 a:hover {
+  .breadcrumb a:hover {
     text-decoration: underline;
   }
 
