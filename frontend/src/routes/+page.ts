@@ -13,6 +13,8 @@ type BoardsResponse = {
 type SessionUser = {
   id: string;
   username: string;
+  is_admin: boolean;
+  tags: string[];
   created_at: string;
 };
 

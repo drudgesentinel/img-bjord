@@ -9,8 +9,19 @@ export async function dbPing() {
     id uuid primary key default gen_random_uuid(),
     username text not null unique,
     password_hash text not null,
+    is_admin boolean not null default false,
+    tags text[] not null default '{}',
     created_at timestamptz not null default now()
   )`);
+  await pool.query("alter table users add column if not exists is_admin boolean not null default false");
+  await pool.query("alter table users add column if not exists tags text[] not null default '{}'");
+  await pool.query(`create table if not exists consumed_usernames (
+    username text primary key,
+    consumed_at timestamptz not null default now()
+  )`);
+  await pool.query(`insert into consumed_usernames (username)
+    select username from users
+    on conflict (username) do nothing`);
   await pool.query("alter table threads add column if not exists delete_key_hash text");
   await pool.query("update threads set delete_key_hash = encode(gen_random_bytes(32), 'hex') where delete_key_hash is null");
   await pool.query("alter table threads alter column delete_key_hash set not null");
@@ -19,6 +30,16 @@ export async function dbPing() {
   await pool.query("alter table posts add column if not exists image_size_bytes integer");
   await pool.query("alter table posts add column if not exists image_width integer");
   await pool.query("alter table posts add column if not exists image_height integer");
+  await pool.query("alter table posts add column if not exists author_user_id uuid");
+  await pool.query(`do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'posts_author_user_fk') then
+    alter table posts
+      add constraint posts_author_user_fk
+      foreign key (author_user_id) references users(id)
+      on delete set null;
+  end if;
+end$$;`);
 }
 
 export async function ensureBoard(slug = "b", name = "Random") {
@@ -31,9 +52,9 @@ export async function ensureBoard(slug = "b", name = "Random") {
 }
 
 export async function dbReset() {
-  // threads -> posts; cascade handles posts
-  await pool.query("truncate table posts, threads, users restart identity cascade");
-  // ensure default board exists after reset
+  // Clean full app state used by tests, including boards created by admin tests.
+  await pool.query("truncate table posts, threads, users, consumed_usernames, boards restart identity cascade");
+  // Ensure default board exists after reset.
   await ensureBoard("b", "Random");
 }
 
