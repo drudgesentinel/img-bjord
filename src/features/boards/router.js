@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { validateBody, validateParams, validateQuery } from "../../middleware/validate.js";
+import { uploadOptionalImage } from "../../middleware/uploadImage.js";
 import { isDomainError } from "../../lib/domainErrors.js";
+import { processImageUpload } from "../../lib/processImageUpload.js";
 import {
   listBoards,
   createThread,
@@ -42,13 +44,13 @@ const listThreadsQuerySchema = z
 const createThreadSchema = z
   .object({
     subject: z.string().trim().min(1).max(100).optional(),
-    body: z.string().trim().min(1).max(5000),
+    body: z.string().trim().max(5000).optional().default(""),
   })
   .strict();
 
 const replySchema = z
   .object({
-    body: z.string().trim().min(1).max(5000),
+    body: z.string().trim().max(5000).optional().default(""),
   })
   .strict();
 
@@ -64,15 +66,37 @@ router.get("/", async (req, res, next) => {
 router.post(
   "/:slug/threads",
   validateParams(boardParamsSchema),
+  uploadOptionalImage("image"),
   validateBody(createThreadSchema),
   async (req, res, next) => {
     try {
       const { slug: boardSlug } = req.validatedParams;
       const { subject, body } = req.validatedBody;
+      const image = await processImageUpload(req.file);
 
-      const created = await createThread({ boardSlug, subject, body });
+      if (!body && !image) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: ["body or image is required"],
+            fieldErrors: {},
+          },
+        });
+      }
+
+      const created = await createThread({ boardSlug, subject, body, image });
       res.status(201).json(serializeCreateThreadResponse(created));
     } catch (err) {
+      if (isDomainError(err, "validation_error")) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: [err.message],
+            fieldErrors: {},
+          },
+        });
+      }
+
       if (isDomainError(err, "board_not_found")) {
         return res.status(404).json({ error: "board_not_found" });
       }
@@ -128,15 +152,37 @@ router.get(
 router.post(
   "/:slug/:subjectSlug/:token/replies",
   validateParams(threadPrettyParamsSchema),
+  uploadOptionalImage("image"),
   validateBody(replySchema),
   async (req, res, next) => {
     try {
       const { slug: boardSlug, subjectSlug, token } = req.validatedParams;
       const { body } = req.validatedBody;
+      const image = await processImageUpload(req.file);
 
-      const created = await createReplyByPretty({ boardSlug, subjectSlug, token, body });
+      if (!body && !image) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: ["body or image is required"],
+            fieldErrors: {},
+          },
+        });
+      }
+
+      const created = await createReplyByPretty({ boardSlug, subjectSlug, token, body, image });
       res.status(201).json(serializeReplyResponse(created));
     } catch (err) {
+      if (isDomainError(err, "validation_error")) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: [err.message],
+            fieldErrors: {},
+          },
+        });
+      }
+
       if (isDomainError(err, "not_found")) {
         return res.status(404).json({ error: "not_found" });
       }

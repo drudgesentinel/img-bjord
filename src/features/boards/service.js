@@ -13,7 +13,7 @@ export async function listBoards() {
   return repo.listBoards(pool);
 }
 
-export async function createThread({ boardSlug, subject, body }) {
+export async function createThread({ boardSlug, subject, body, image = null }) {
   const subjectOrNull = subject ?? null;
   const subjectSlug = slugifySubject(subjectOrNull ?? "");
 
@@ -54,6 +54,11 @@ export async function createThread({ boardSlug, subject, body }) {
       threadId: thread.id,
       postNumber: row.next_post_number,
       body,
+      imageUrl: image?.imageUrl ?? null,
+      imageMimeType: image?.imageMimeType ?? null,
+      imageSizeBytes: image?.imageSizeBytes ?? null,
+      imageWidth: image?.imageWidth ?? null,
+      imageHeight: image?.imageHeight ?? null,
     });
 
     await repo.incrementNextPostNumber(client, thread.id);
@@ -87,7 +92,7 @@ export async function getThreadDetailByPretty({ boardSlug, subjectSlug, token })
   return { thread, posts };
 }
 
-export async function createReplyByPretty({ boardSlug, subjectSlug, token, body }) {
+export async function createReplyByPretty({ boardSlug, subjectSlug, token, body, image = null }) {
   return withTransaction(pool, async (client) => {
     const thread = await repo.findThreadForUpdateByPretty(client, {
       boardSlug,
@@ -103,6 +108,11 @@ export async function createReplyByPretty({ boardSlug, subjectSlug, token, body 
       threadId: thread.id,
       postNumber: thread.next_post_number,
       body,
+      imageUrl: image?.imageUrl ?? null,
+      imageMimeType: image?.imageMimeType ?? null,
+      imageSizeBytes: image?.imageSizeBytes ?? null,
+      imageWidth: image?.imageWidth ?? null,
+      imageHeight: image?.imageHeight ?? null,
     });
 
     await repo.bumpAndIncrementNextPostNumber(client, thread.id);

@@ -14,6 +14,11 @@ export type Post = {
   post_number: number;
   created_at: string;
   body: string;
+  image_url?: string | null;
+  image_mime_type?: string | null;
+  image_size_bytes?: number | null;
+  image_width?: number | null;
+  image_height?: number | null;
 };
 
 export type ThreadListResponse = {

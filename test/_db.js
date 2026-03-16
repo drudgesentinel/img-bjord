@@ -5,6 +5,11 @@ let closed = false;
 
 export async function dbPing() {
   await pool.query("select 1");
+  await pool.query("alter table posts add column if not exists image_url text");
+  await pool.query("alter table posts add column if not exists image_mime_type text");
+  await pool.query("alter table posts add column if not exists image_size_bytes integer");
+  await pool.query("alter table posts add column if not exists image_width integer");
+  await pool.query("alter table posts add column if not exists image_height integer");
 }
 
 export async function ensureBoard(slug = "b", name = "Random") {

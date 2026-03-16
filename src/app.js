@@ -1,6 +1,7 @@
 import express from "express";
 import helmet from "helmet";
 import pino from "pino-http";
+import { getUploadDir } from "./lib/mediaStorage.js";
 
 import healthRouter from "./routes/health.js";
 import boardsRouter from "./features/boards/router.js";
@@ -31,6 +32,7 @@ export function createApp() {
   app.use(helmet());
   app.use(pino());
   app.use(express.json({ limit: "64kb" }));
+  app.use("/api/uploads", express.static(getUploadDir()));
 
   app.use(healthRouter);
   app.use("/api/boards", boardsRouter);

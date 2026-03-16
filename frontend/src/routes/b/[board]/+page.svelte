@@ -14,26 +14,76 @@
   let body = $state('');
   let creating = $state(false);
   let error = $state('');
+  let imageFile = $state<File | null>(null);
+  let imagePreviewUrl = $state('');
+
+  function setImage(file: File | null) {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+      imagePreviewUrl = '';
+    }
+
+    imageFile = file;
+    if (file) {
+      imagePreviewUrl = URL.createObjectURL(file);
+    }
+  }
+
+  function handleImageChange(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    setImage(file);
+  }
+
+  function handleBodyPaste(event: ClipboardEvent) {
+    if (!event.clipboardData) return;
+
+    const imageItem = [...event.clipboardData.items].find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    event.preventDefault();
+    setImage(file);
+  }
+
+  function clearImage() {
+    setImage(null);
+  }
 
   async function createThread() {
     error = '';
-    if (!body.trim()) {
-      error = 'Body is required';
+    if (!body.trim() && !imageFile) {
+      error = 'Body or image is required';
       return;
     }
     creating = true;
 
     try {
-      const payload = await api<CreateThreadResponse>(fetch, `/api/boards/${data.board}/threads`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({
-          subject: subject || undefined,
-          body
-        })
-      });
+      const init: RequestInit = imageFile
+        ? {
+            method: 'POST',
+            body: (() => {
+              const form = new FormData();
+              if (subject.trim()) form.append('subject', subject.trim());
+              form.append('body', body);
+              form.append('image', imageFile);
+              return form;
+            })()
+          }
+        : {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+              subject: subject || undefined,
+              body
+            })
+          };
+
+      const payload = await api<CreateThreadResponse>(fetch, `/api/boards/${data.board}/threads`, init);
 
       const canonicalPath =
         payload.canonicalPath ||
@@ -43,6 +93,7 @@
       // frontend route should be /b/:slug/:subjectSlug/:token
       const frontendPath = canonicalPath.replace('/api/boards/', '/b/');
 
+      clearImage();
       await goto(frontendPath);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to create thread';
@@ -67,9 +118,26 @@
   <div>
     <label>
       Body
-      <textarea bind:value={body} maxlength="5000" rows="8"></textarea>
+      <textarea bind:value={body} maxlength="5000" rows="8" on:paste={handleBodyPaste}></textarea>
     </label>
   </div>
+
+  <div>
+    <label>
+      Image
+      <input type="file" accept="image/*" on:change={handleImageChange} />
+    </label>
+    <p><small>Tip: you can also paste an image into the body field.</small></p>
+  </div>
+
+  {#if imagePreviewUrl}
+    <div>
+      <img src={imagePreviewUrl} alt="Selected image preview" style="max-width: 320px; max-height: 320px;" />
+      <div>
+        <button type="button" on:click={clearImage} disabled={creating}>Remove image</button>
+      </div>
+    </div>
+  {/if}
 
   <button on:click={createThread} disabled={creating}>
     {creating ? 'Posting...' : 'Create thread'}

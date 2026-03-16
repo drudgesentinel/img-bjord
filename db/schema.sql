@@ -36,8 +36,19 @@ create table if not exists posts (
   thread_id uuid not null references threads(id) on delete cascade,
   post_number integer not null,
   created_at timestamptz not null default now(),
-  body text not null
+  body text not null,
+  image_url text,
+  image_mime_type text,
+  image_size_bytes integer,
+  image_width integer,
+  image_height integer
 );
+
+alter table posts add column if not exists image_url text;
+alter table posts add column if not exists image_mime_type text;
+alter table posts add column if not exists image_size_bytes integer;
+alter table posts add column if not exists image_width integer;
+alter table posts add column if not exists image_height integer;
 
 -- FK threads.board_slug -> boards.slug (idempotent)
 do $$

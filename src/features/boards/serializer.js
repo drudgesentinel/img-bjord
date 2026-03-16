@@ -13,6 +13,11 @@ export function serializePost(post) {
     post_number: post.post_number,
     created_at: post.created_at,
     body: post.body,
+    image_url: post.image_url,
+    image_mime_type: post.image_mime_type,
+    image_size_bytes: post.image_size_bytes,
+    image_width: post.image_width,
+    image_height: post.image_height,
   };
 }
 

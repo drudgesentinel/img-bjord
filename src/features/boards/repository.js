@@ -74,7 +74,8 @@ export async function findNextPostNumberForUpdateByThreadId(db, threadId) {
 
 export async function listPostsByThreadId(db, threadId) {
   const r = await db.query(
-    `select id, thread_id, post_number, created_at, body
+    `select id, thread_id, post_number, created_at, body,
+            image_url, image_mime_type, image_size_bytes, image_width, image_height
      from posts
      where thread_id = $1
      order by post_number asc`,
@@ -84,12 +85,16 @@ export async function listPostsByThreadId(db, threadId) {
   return r.rows;
 }
 
-export async function insertPost(db, { threadId, postNumber, body }) {
+export async function insertPost(
+  db,
+  { threadId, postNumber, body, imageUrl = null, imageMimeType = null, imageSizeBytes = null, imageWidth = null, imageHeight = null },
+) {
   const r = await db.query(
-    `insert into posts (thread_id, post_number, body)
-     values ($1, $2, $3)
-     returning id, thread_id, post_number, created_at, body`,
-    [threadId, postNumber, body],
+    `insert into posts (thread_id, post_number, body, image_url, image_mime_type, image_size_bytes, image_width, image_height)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
+     returning id, thread_id, post_number, created_at, body,
+               image_url, image_mime_type, image_size_bytes, image_width, image_height`,
+    [threadId, postNumber, body, imageUrl, imageMimeType, imageSizeBytes, imageWidth, imageHeight],
   );
 
   return r.rows[0];

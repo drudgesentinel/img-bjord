@@ -3,19 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-"scripts": {
-  "dev": "nodemon src/index.js",
-  "start": "node src/index.js",
-  "test": "vitest --sequence.concurrent false --fileParallelism false",
-  "test:watch": "vitest --watch --sequence.concurrent false --fileParallelism false"
-},
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "test": "vitest --sequence.concurrent false --fileParallelism false",
+    "test:watch": "vitest --watch --sequence.concurrent false --fileParallelism false"
+  },
   "dependencies": {
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
+    "multer": "^2.1.1",
     "pg": "^8.18.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
+    "sharp": "^0.34.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -25,5 +27,4 @@
     "supertest": "^7.2.2",
     "vitest": "^4.0.18"
   }
-
 }

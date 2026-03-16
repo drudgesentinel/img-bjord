@@ -13,7 +13,7 @@ export async function getThreadDetailById(threadId) {
   return { thread, posts };
 }
 
-export async function createReplyByThreadId({ threadId, body }) {
+export async function createReplyByThreadId({ threadId, body, image = null }) {
   return withTransaction(pool, async (client) => {
     const row = await repo.findNextPostNumberForUpdateByThreadId(client, threadId);
     if (!row) {
@@ -24,6 +24,11 @@ export async function createReplyByThreadId({ threadId, body }) {
       threadId,
       postNumber: row.next_post_number,
       body,
+      imageUrl: image?.imageUrl ?? null,
+      imageMimeType: image?.imageMimeType ?? null,
+      imageSizeBytes: image?.imageSizeBytes ?? null,
+      imageWidth: image?.imageWidth ?? null,
+      imageHeight: image?.imageHeight ?? null,
     });
 
     await repo.bumpAndIncrementNextPostNumber(client, threadId);
