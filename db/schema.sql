@@ -16,6 +16,7 @@ create table if not exists threads (
   subject text,
   subject_slug text not null,
   token text not null,
+  delete_key_hash text,
 
   created_at timestamptz not null default now(),
   bumped_at timestamptz not null default now(),
@@ -26,6 +27,10 @@ create table if not exists threads (
 -- token must be unique per board
 create unique index if not exists threads_board_token_uq
   on threads (board_slug, token);
+
+alter table threads add column if not exists delete_key_hash text;
+update threads set delete_key_hash = encode(gen_random_bytes(32), 'hex') where delete_key_hash is null;
+alter table threads alter column delete_key_hash set not null;
 
 create index if not exists threads_board_bumped_idx
   on threads (board_slug, bumped_at desc);

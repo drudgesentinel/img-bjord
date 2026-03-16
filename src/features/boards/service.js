@@ -7,6 +7,7 @@ import {
   normalizeToken,
   isUniqueViolation,
 } from "../../lib/threadSlug.js";
+import { generateDeleteKey, hashDeleteKey } from "../../lib/deleteKey.js";
 import * as repo from "./repository.js";
 
 export async function listBoards() {
@@ -16,6 +17,8 @@ export async function listBoards() {
 export async function createThread({ boardSlug, subject, body, image = null }) {
   const subjectOrNull = subject ?? null;
   const subjectSlug = slugifySubject(subjectOrNull ?? "");
+  const deleteKey = generateDeleteKey();
+  const deleteKeyHash = hashDeleteKey(deleteKey);
 
   return withTransaction(pool, async (client) => {
     const boardExists = await repo.existsBoardBySlug(client, boardSlug);
@@ -33,6 +36,7 @@ export async function createThread({ boardSlug, subject, body, image = null }) {
           subject: subjectOrNull,
           subjectSlug: subjectSlug || "thread",
           token,
+          deleteKeyHash,
         });
         break;
       } catch (err) {
@@ -64,7 +68,7 @@ export async function createThread({ boardSlug, subject, body, image = null }) {
     await repo.incrementNextPostNumber(client, thread.id);
 
     const canonicalPath = `/api/boards/${thread.board_slug}/${thread.subject_slug}/${thread.token}`;
-    return { thread, firstPost, canonicalPath };
+    return { thread, firstPost, canonicalPath, deleteKey };
   });
 }
 
@@ -119,4 +123,29 @@ export async function createReplyByPretty({ boardSlug, subjectSlug, token, body,
 
     return { post };
   });
+}
+
+export async function deleteThreadByPretty({ boardSlug, subjectSlug, token, deleteKey }) {
+  const normalizedToken = normalizeToken(token);
+  const normalizedDeleteKey = deleteKey?.trim();
+
+  if (!normalizedDeleteKey) {
+    throw new DomainError("validation_error", "delete key is required");
+  }
+
+  const thread = await repo.findThreadDeleteAuthByPretty(pool, {
+    boardSlug,
+    subjectSlug,
+    token: normalizedToken,
+  });
+
+  if (!thread) {
+    throw new DomainError("not_found");
+  }
+
+  if (thread.delete_key_hash !== hashDeleteKey(normalizedDeleteKey)) {
+    throw new DomainError("invalid_delete_key");
+  }
+
+  await repo.deleteThreadById(pool, thread.id);
 }

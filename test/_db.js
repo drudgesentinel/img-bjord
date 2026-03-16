@@ -5,6 +5,9 @@ let closed = false;
 
 export async function dbPing() {
   await pool.query("select 1");
+  await pool.query("alter table threads add column if not exists delete_key_hash text");
+  await pool.query("update threads set delete_key_hash = encode(gen_random_bytes(32), 'hex') where delete_key_hash is null");
+  await pool.query("alter table threads alter column delete_key_hash set not null");
   await pool.query("alter table posts add column if not exists image_url text");
   await pool.query("alter table posts add column if not exists image_mime_type text");
   await pool.query("alter table posts add column if not exists image_size_bytes integer");

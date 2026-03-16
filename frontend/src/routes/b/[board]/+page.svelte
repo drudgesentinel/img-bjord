@@ -93,6 +93,8 @@
       // frontend route should be /b/:slug/:subjectSlug/:token
       const frontendPath = canonicalPath.replace('/api/boards/', '/b/');
 
+      alert(`Save this deletion key now. It is required to delete this thread:\n\n${payload.deleteKey}`);
+
       clearImage();
       await goto(frontendPath);
     } catch (e) {

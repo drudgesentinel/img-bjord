@@ -16,6 +16,14 @@ const ADJECTIVES = [
   "plague",
   "one eyed",
   "punished",
+  "scourged",
+  "bilious",
+  "vile",
+  "dire",
+  "forsaken",
+  "feeble",
+  "overpowered",
+  "nerfed",
 ];
 
 const NOUNS = [
@@ -36,6 +44,13 @@ const NOUNS = [
   "wastrel",
   "sliver",
   "wretch",
+  "god",
+  "keep",
+  "moth",
+  "widower",
+  "cursed one",
+  "maiden",
+  "demise",
 ];
 
 export function slugifySubject(subject) {

@@ -52,11 +52,12 @@ export function serializeThreadDetailResponse({ thread, posts }) {
   };
 }
 
-export function serializeCreateThreadResponse({ thread, firstPost, canonicalPath }) {
+export function serializeCreateThreadResponse({ thread, firstPost, canonicalPath, deleteKey }) {
   return {
     thread: serializeThread(thread),
     firstPost: serializePost(firstPost),
     canonicalPath,
+    deleteKey,
   };
 }
 

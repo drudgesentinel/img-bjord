@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { api } from '$lib/api';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
 
@@ -14,6 +14,7 @@
 
   let body = $state('');
   let replying = $state(false);
+  let deleting = $state(false);
   let error = $state('');
   let expandedImageUrl = $state<string | null>(null);
   let imageFile = $state<File | null>(null);
@@ -62,6 +63,32 @@
     expandedImageUrl = null;
   }
 
+  async function deleteThread() {
+    if (!confirm('Delete this thread permanently?')) return;
+    const key = prompt('Enter deletion key');
+    if (!key?.trim()) return;
+
+    deleting = true;
+    error = '';
+
+    try {
+      const res = await fetch(`/api/threads/${data.threadId}?key=${encodeURIComponent(key.trim())}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        const details = await res.text();
+        throw new Error(details || 'Failed to delete thread');
+      }
+
+      await goto(`/b/${data.board}`);
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to delete thread';
+    } finally {
+      deleting = false;
+    }
+  }
+
   async function submitReply() {
     error = '';
     if (!body.trim() && !imageFile) {
@@ -103,6 +130,12 @@
 </script>
 
 <h1>/{data.board}/ {data.thread.subject ?? '(untitled)'}</h1>
+
+<p>
+  <button type="button" on:click={deleteThread} disabled={deleting || replying}>
+    {deleting ? 'Deleting...' : 'Delete thread'}
+  </button>
+</p>
 
 <section>
   <h2>Posts</h2>

@@ -13,12 +13,12 @@ export async function existsBoardBySlug(db, boardSlug) {
   return r.rowCount > 0;
 }
 
-export async function insertThread(db, { boardSlug, subject, subjectSlug, token }) {
+export async function insertThread(db, { boardSlug, subject, subjectSlug, token, deleteKeyHash }) {
   const r = await db.query(
-    `insert into threads (board_slug, subject, subject_slug, token)
-     values ($1, $2, $3, $4)
+    `insert into threads (board_slug, subject, subject_slug, token, delete_key_hash)
+     values ($1, $2, $3, $4, $5)
      returning id, board_slug, subject, subject_slug, token, created_at, bumped_at`,
-    [boardSlug, subject, subjectSlug, token],
+    [boardSlug, subject, subjectSlug, token, deleteKeyHash],
   );
 
   return r.rows[0];
@@ -46,6 +46,32 @@ export async function findThreadByPretty(db, { boardSlug, subjectSlug, token }) 
   );
 
   return r.rows[0] ?? null;
+}
+
+export async function deleteThreadByPretty(db, { boardSlug, subjectSlug, token }) {
+  const r = await db.query(
+    `delete from threads
+     where board_slug = $1 and subject_slug = $2 and token = $3`,
+    [boardSlug, subjectSlug, token],
+  );
+
+  return r.rowCount > 0;
+}
+
+export async function findThreadDeleteAuthByPretty(db, { boardSlug, subjectSlug, token }) {
+  const r = await db.query(
+    `select id, delete_key_hash
+     from threads
+     where board_slug = $1 and subject_slug = $2 and token = $3`,
+    [boardSlug, subjectSlug, token],
+  );
+
+  return r.rows[0] ?? null;
+}
+
+export async function deleteThreadById(db, threadId) {
+  const r = await db.query(`delete from threads where id = $1`, [threadId]);
+  return r.rowCount > 0;
 }
 
 export async function findThreadForUpdateByPretty(db, { boardSlug, subjectSlug, token }) {

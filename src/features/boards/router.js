@@ -10,6 +10,7 @@ import {
   listThreads,
   getThreadDetailByPretty,
   createReplyByPretty,
+  deleteThreadByPretty,
 } from "./service.js";
 import {
   serializeBoardsResponse,
@@ -51,6 +52,12 @@ const createThreadSchema = z
 const replySchema = z
   .object({
     body: z.string().trim().max(5000).optional().default(""),
+  })
+  .strict();
+
+const deleteThreadQuerySchema = z
+  .object({
+    key: z.string().trim().min(1).max(128),
   })
   .strict();
 
@@ -181,6 +188,40 @@ router.post(
             fieldErrors: {},
           },
         });
+      }
+
+      if (isDomainError(err, "not_found")) {
+        return res.status(404).json({ error: "not_found" });
+      }
+
+      next(err);
+    }
+  },
+);
+
+router.delete(
+  "/:slug/:subjectSlug/:token",
+  validateParams(threadPrettyParamsSchema),
+  validateQuery(deleteThreadQuerySchema),
+  async (req, res, next) => {
+    try {
+      const { slug: boardSlug, subjectSlug, token } = req.validatedParams;
+      const { key } = req.validatedQuery;
+      await deleteThreadByPretty({ boardSlug, subjectSlug, token, deleteKey: key });
+      res.status(204).end();
+    } catch (err) {
+      if (isDomainError(err, "validation_error")) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: [err.message],
+            fieldErrors: {},
+          },
+        });
+      }
+
+      if (isDomainError(err, "invalid_delete_key")) {
+        return res.status(403).json({ error: "invalid_delete_key" });
       }
 
       if (isDomainError(err, "not_found")) {

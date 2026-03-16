@@ -28,14 +28,16 @@ describe("threads", () => {
     expect(res.status).toBe(201);
 
     const thread = res.body.thread;
+    const deleteKey = res.body.deleteKey;
     expect(thread.subject_slug).toBeTruthy();
     expect(thread.token).toBeTruthy();
+    expect(deleteKey).toBeTruthy();
 
-    return thread;
+    return { thread, deleteKey };
   }
 
   it("can view a thread by board + subjectSlug + token (posts ordered by post_number)", async () => {
-    const thread = await createThread("Lifting Routine", "first post");
+    const { thread } = await createThread("Lifting Routine", "first post");
 
     const viewRes = await request(app).get(
       `/api/boards/b/${thread.subject_slug}/${thread.token}`,
@@ -49,7 +51,7 @@ describe("threads", () => {
   });
 
   it("replies add a post with incrementing post_number", async () => {
-    const thread = await createThread("t", "op");
+    const { thread } = await createThread("t", "op");
 
     const r1 = await request(app)
       .post(`/api/boards/b/${thread.subject_slug}/${thread.token}/replies`)
@@ -83,7 +85,7 @@ describe("threads", () => {
   });
 
   it("validation: rejects blank reply body", async () => {
-    const thread = await createThread("t", "op");
+    const { thread } = await createThread("t", "op");
 
     const res = await request(app)
       .post(`/api/boards/b/${thread.subject_slug}/${thread.token}/replies`)
@@ -92,5 +94,49 @@ describe("threads", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("validation_error");
+  });
+
+  it("can hard delete a thread by board + subjectSlug + token", async () => {
+    const { thread, deleteKey } = await createThread("delete me", "op");
+
+    const del = await request(app).delete(
+      `/api/boards/b/${thread.subject_slug}/${thread.token}?key=${encodeURIComponent(deleteKey)}`,
+    );
+
+    expect(del.status).toBe(204);
+
+    const view = await request(app).get(
+      `/api/boards/b/${thread.subject_slug}/${thread.token}`,
+    );
+
+    expect(view.status).toBe(404);
+  });
+
+  it("can hard delete a thread by UUID", async () => {
+    const { thread, deleteKey } = await createThread("delete by id", "op");
+
+    const del = await request(app).delete(`/api/threads/${thread.id}?key=${encodeURIComponent(deleteKey)}`);
+    expect(del.status).toBe(204);
+
+    const viewById = await request(app).get(`/api/threads/${thread.id}`);
+    expect(viewById.status).toBe(404);
+  });
+
+  it("rejects pretty-route deletion without key", async () => {
+    const { thread } = await createThread("delete denied", "op");
+
+    const del = await request(app).delete(`/api/boards/b/${thread.subject_slug}/${thread.token}`);
+    expect(del.status).toBe(400);
+    expect(del.body.error).toBe("validation_error");
+  });
+
+  it("rejects UUID deletion with wrong key", async () => {
+    const { thread } = await createThread("delete denied by id", "op");
+
+    const del = await request(app).delete(
+      `/api/threads/${thread.id}?key=${encodeURIComponent("wrong-key")}`,
+    );
+    expect(del.status).toBe(403);
+    expect(del.body.error).toBe("invalid_delete_key");
   });
 });
