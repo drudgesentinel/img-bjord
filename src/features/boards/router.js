@@ -9,6 +9,13 @@ import {
   getThreadDetailByPretty,
   createReplyByPretty,
 } from "./service.js";
+import {
+  serializeBoardsResponse,
+  serializeCreateThreadResponse,
+  serializeThreadListResponse,
+  serializeThreadDetailResponse,
+  serializeReplyResponse,
+} from "./serializer.js";
 
 const router = Router();
 
@@ -48,7 +55,7 @@ const replySchema = z
 router.get("/", async (req, res, next) => {
   try {
     const boards = await listBoards();
-    res.json({ boards });
+    res.json(serializeBoardsResponse(boards));
   } catch (err) {
     next(err);
   }
@@ -64,7 +71,7 @@ router.post(
       const { subject, body } = req.validatedBody;
 
       const created = await createThread({ boardSlug, subject, body });
-      res.status(201).json(created);
+      res.status(201).json(serializeCreateThreadResponse(created));
     } catch (err) {
       if (isDomainError(err, "board_not_found")) {
         return res.status(404).json({ error: "board_not_found" });
@@ -89,7 +96,7 @@ router.get(
       const limit = req.validatedQuery.limit ?? 20;
 
       const threads = await listThreads({ boardSlug, limit });
-      res.json({ threads });
+      res.json(serializeThreadListResponse(threads));
     } catch (err) {
       if (isDomainError(err, "board_not_found")) {
         return res.status(404).json({ error: "board_not_found" });
@@ -107,7 +114,7 @@ router.get(
     try {
       const { slug: boardSlug, subjectSlug, token } = req.validatedParams;
       const detail = await getThreadDetailByPretty({ boardSlug, subjectSlug, token });
-      res.json(detail);
+      res.json(serializeThreadDetailResponse(detail));
     } catch (err) {
       if (isDomainError(err, "not_found")) {
         return res.status(404).json({ error: "not_found" });
@@ -128,7 +135,7 @@ router.post(
       const { body } = req.validatedBody;
 
       const created = await createReplyByPretty({ boardSlug, subjectSlug, token, body });
-      res.status(201).json(created);
+      res.status(201).json(serializeReplyResponse(created));
     } catch (err) {
       if (isDomainError(err, "not_found")) {
         return res.status(404).json({ error: "not_found" });

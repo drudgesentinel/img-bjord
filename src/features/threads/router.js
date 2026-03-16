@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validateBody, validateParams } from "../../middleware/validate.js";
 import { isDomainError } from "../../lib/domainErrors.js";
 import { getThreadDetailById, createReplyByThreadId } from "./service.js";
+import { serializeReplyResponse, serializeThreadDetailResponse } from "./serializer.js";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get("/:id", validateParams(threadIdParamsSchema), async (req, res, next) 
     const { id: threadId } = req.validatedParams;
 
     const detail = await getThreadDetailById(threadId);
-    res.json(detail);
+    res.json(serializeThreadDetailResponse(detail));
   } catch (err) {
     if (isDomainError(err, "not_found")) {
       return res.status(404).json({ error: "not_found" });
@@ -39,7 +40,7 @@ router.post(
       const { body } = req.validatedBody;
 
       const created = await createReplyByThreadId({ threadId, body });
-      res.status(201).json(created);
+      res.status(201).json(serializeReplyResponse(created));
     } catch (err) {
       if (isDomainError(err, "not_found")) {
         return res.status(404).json({ error: "not_found" });
