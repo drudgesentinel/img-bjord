@@ -88,3 +88,31 @@ multi MAIN('db', $cmd) {
         }
     }
 }
+multi MAIN('admin', $cmd, $username?) {
+    given $cmd {
+        when any <promote p> {
+            ensure-db-up();
+            my $target-username = $username // prompt "Username to promote: ";
+            $target-username = $target-username.trim;
+            if !$target-username {
+                note "Username is required";
+                exit 1;
+            }
+
+            run-or-die <podman exec -i>, $CONTAINER,
+                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
+                "-v", "u={$target-username}",
+                "-c", "UPDATE users SET is_admin = true WHERE username = :'u';";
+
+            run-or-die <podman exec -i>, $CONTAINER,
+                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
+                "-v", "u={$target-username}",
+                "-c", "SELECT username, is_admin FROM users WHERE username = :'u';";
+        }
+
+        default {
+            note "Unknown admin command: $cmd";
+            exit 1;
+        }
+    }
+}
