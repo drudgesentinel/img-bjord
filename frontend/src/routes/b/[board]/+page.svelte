@@ -17,6 +17,10 @@
 
   async function createThread() {
     error = '';
+    if (!body.trim()) {
+      error = 'Body is required';
+      return;
+    }
     creating = true;
 
     try {
@@ -67,7 +71,7 @@
     </label>
   </div>
 
-  <button on:click={createThread} disabled={creating || !body.trim()}>
+  <button on:click={createThread} disabled={creating}>
     {creating ? 'Posting...' : 'Create thread'}
   </button>
 

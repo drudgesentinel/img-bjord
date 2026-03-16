@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { pool } from "../db.js";
 import { validateBody, validateParams } from "../middleware/validate.js";
+import { isDomainError } from "../lib/domainErrors.js";
+import { getThreadDetailById, createReplyByThreadId } from "../services/threadsService.js";
 import { z } from "zod";
 
 const router = Router();
@@ -24,24 +25,13 @@ router.get(
     try {
       const { id: threadId } = req.validatedParams;
 
-      const t = await pool.query(
-        `select id, board_slug, subject, subject_slug, token, created_at, bumped_at
-       from threads
-       where id = $1`,
-        [threadId],
-      );
-      if (t.rowCount === 0) return res.status(404).json({ error: "not_found" });
-
-      const p = await pool.query(
-        `select id, thread_id, post_number, created_at, body
-       from posts
-       where thread_id = $1
-       order by post_number asc`,
-        [threadId],
-      );
-
-      res.json({ thread: t.rows[0], posts: p.rows });
+      const detail = await getThreadDetailById(threadId);
+      res.json(detail);
     } catch (err) {
+      if (isDomainError(err, "not_found")) {
+        return res.status(404).json({ error: "not_found" });
+      }
+
       next(err);
     }
   },
@@ -60,49 +50,13 @@ router.post(
       const { id: threadId } = req.validatedParams;
       const { body } = req.validatedBody;
 
-      const client = await pool.connect();
-      try {
-        await client.query("begin");
-
-        const t = await client.query(
-          `select next_post_number
-           from threads
-           where id = $1
-           for update`,
-          [threadId],
-        );
-
-        if (t.rowCount === 0) {
-          await client.query("rollback");
-          return res.status(404).json({ error: "not_found" });
-        }
-
-        const postNumber = t.rows[0].next_post_number;
-
-        const p = await client.query(
-          `insert into posts(thread_id, post_number, body)
-           values ($1, $2, $3)
-           returning id, thread_id, post_number, created_at, body`,
-          [threadId, postNumber, body],
-        );
-
-        await client.query(
-          `update threads
-           set bumped_at = now(),
-               next_post_number = next_post_number + 1
-           where id = $1`,
-          [threadId],
-        );
-
-        await client.query("commit");
-        res.status(201).json({ post: p.rows[0] });
-      } catch (e) {
-        await client.query("rollback");
-        throw e;
-      } finally {
-        client.release();
-      }
+      const created = await createReplyByThreadId({ threadId, body });
+      res.status(201).json(created);
     } catch (err) {
+      if (isDomainError(err, "not_found")) {
+        return res.status(404).json({ error: "not_found" });
+      }
+
       next(err);
     }
   },

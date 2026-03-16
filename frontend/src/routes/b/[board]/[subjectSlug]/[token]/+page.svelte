@@ -17,6 +17,10 @@
 
   async function submitReply() {
     error = '';
+    if (!body.trim()) {
+      error = 'Body is required';
+      return;
+    }
     replying = true;
 
     try {
@@ -76,7 +80,7 @@
   </label>
 
   <div>
-    <button on:click={submitReply} disabled={replying || !body.trim()}>
+    <button on:click={submitReply} disabled={replying}>
       {replying ? 'Replying...' : 'Post reply'}
     </button>
   </div>
