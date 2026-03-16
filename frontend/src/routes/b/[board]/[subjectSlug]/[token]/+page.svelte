@@ -14,6 +14,7 @@
   let body = $state('');
   let replying = $state(false);
   let error = $state('');
+  let expandedImageUrl = $state<string | null>(null);
   let imageFile = $state<File | null>(null);
   let imagePreviewUrl = $state('');
 
@@ -50,6 +51,14 @@
 
   function clearImage() {
     setImage(null);
+  }
+
+  function openImage(url: string) {
+    expandedImageUrl = url;
+  }
+
+  function closeImage() {
+    expandedImageUrl = null;
   }
 
   async function submitReply() {
@@ -110,21 +119,36 @@
   <h2>Posts</h2>
 
   {#each data.posts as post}
-    <article>
+    <article class:reply={post.post_number > 1}>
       <p>
         <strong>#{post.post_number}</strong>
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
       <pre>{post.body}</pre>
       {#if post.image_url}
-        <div>
-          <img src={post.image_url} alt="Post attachment" style="max-width: 100%; max-height: 640px;" loading="lazy" />
-        </div>
+        <figure class="post-image">
+          <button type="button" class="image-button" on:click={() => openImage(post.image_url!)}>
+            <img
+              src={post.image_url}
+              alt="Post image"
+              loading="lazy"
+              decoding="async"
+              width={post.image_width ?? undefined}
+              height={post.image_height ?? undefined}
+            />
+          </button>
+        </figure>
       {/if}
       <hr />
     </article>
   {/each}
 </section>
+
+{#if expandedImageUrl}
+  <div class="lightbox" on:click={closeImage}>
+    <img src={expandedImageUrl} alt="Expanded post image" class="lightbox-image" />
+  </div>
+{/if}
 
 <section>
   <h2>Reply</h2>
@@ -161,3 +185,51 @@
     <p>{error}</p>
   {/if}
 </section>
+
+<style>
+  article.reply {
+    margin-left: clamp(0.5rem, 2vw, 1.25rem);
+    padding-left: 0.75rem;
+    border-left: 2px solid #d7d7d7;
+  }
+
+  .post-image {
+    margin: 0.5rem 0 0;
+  }
+
+  .post-image img {
+    display: block;
+    width: auto;
+    max-width: min(100%, 560px);
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #111;
+    cursor: zoom-in;
+  }
+
+  .image-button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    z-index: 1000;
+    cursor: zoom-out;
+  }
+
+  .lightbox-image {
+    max-width: min(95vw, 1400px);
+    max-height: 95vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+</style>
