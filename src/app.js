@@ -6,6 +6,7 @@ import { getUploadDir, isLocalMediaStorage } from "./lib/mediaStorage.js";
 
 import healthRouter from "./routes/health.js";
 import authRouter from "./features/auth/router.js";
+import adminRouter from "./features/admin/router.js";
 import boardsRouter from "./features/boards/router.js";
 import threadsRouter from "./features/threads/router.js";
 
@@ -58,6 +59,7 @@ export function createApp() {
 
   app.use(healthRouter);
   app.use("/api/auth", authRouter);
+  app.use("/api/admin", adminRouter);
   app.use("/api/boards", boardsRouter);
   app.use("/api/threads", threadsRouter);
 

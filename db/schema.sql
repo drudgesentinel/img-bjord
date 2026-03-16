@@ -12,8 +12,22 @@ create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   username text not null unique,
   password_hash text not null,
+  is_admin boolean not null default false,
+  tags text[] not null default '{}',
   created_at timestamptz not null default now()
 );
+
+create table if not exists consumed_usernames (
+  username text primary key,
+  consumed_at timestamptz not null default now()
+);
+
+insert into consumed_usernames (username)
+select username from users
+on conflict (username) do nothing;
+
+alter table users add column if not exists is_admin boolean not null default false;
+alter table users add column if not exists tags text[] not null default '{}';
 
 -- threads (no legacy support)
 create table if not exists threads (
@@ -47,6 +61,7 @@ create index if not exists threads_board_bumped_idx
 create table if not exists posts (
   id uuid primary key default gen_random_uuid(),
   thread_id uuid not null references threads(id) on delete cascade,
+  author_user_id uuid references users(id) on delete set null,
   post_number integer not null,
   created_at timestamptz not null default now(),
   body text not null,
@@ -62,6 +77,17 @@ alter table posts add column if not exists image_mime_type text;
 alter table posts add column if not exists image_size_bytes integer;
 alter table posts add column if not exists image_width integer;
 alter table posts add column if not exists image_height integer;
+alter table posts add column if not exists author_user_id uuid;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'posts_author_user_fk') then
+    alter table posts
+      add constraint posts_author_user_fk
+      foreign key (author_user_id) references users(id)
+      on delete set null;
+  end if;
+end$$;
 
 -- FK threads.board_slug -> boards.slug (idempotent)
 do $$

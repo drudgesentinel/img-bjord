@@ -88,11 +88,11 @@ multi MAIN('db', $cmd) {
         }
     }
 }
-multi MAIN('admin', $cmd, $username?) {
+multi MAIN('admin', $cmd, $name?) {
     given $cmd {
         when any <promote p> {
             ensure-db-up();
-            my $target-username = $username // prompt "Username to promote: ";
+            my $target-username = $name // prompt "Username to promote: ";
             $target-username = $target-username.trim;
             if !$target-username {
                 note "Username is required";
@@ -108,6 +108,25 @@ multi MAIN('admin', $cmd, $username?) {
             run-or-die <podman exec -i>, $CONTAINER,
                 <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
                 "-c", "SELECT username, is_admin FROM users WHERE username = '{$escaped-username}';";
+        }
+
+        when any <board makeboard> {
+            ensure-db-up();
+            my $slug = prompt "Board slug (e.g. 'b'): ";
+            my $board-name = $name // prompt "Board name (e.g. 'Random'): ";
+            $slug = $slug.trim;
+            $board-name = $board-name.trim;
+            if !$slug || !$board-name {
+                note "Both slug and name are required";
+                exit 1;
+            }
+
+            my $escaped-slug = $slug.subst("'", "''", :g);
+            my $escaped-name = $name.subst("'", "''", :g);
+
+            run-or-die <podman exec -i>, $CONTAINER,
+                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
+                "-c", "INSERT INTO boards (slug, name) VALUES ('{$escaped-slug}', '{$escaped-name}');";
         }
 
         default {
