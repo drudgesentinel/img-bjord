@@ -1,5 +1,6 @@
 import { pool } from "../../db.js";
 import { DomainError } from "../../lib/domainErrors.js";
+import { withTransaction } from "../../lib/withTransaction.js";
 import * as repo from "./repository.js";
 
 export async function getThreadDetailById(threadId) {
@@ -13,10 +14,7 @@ export async function getThreadDetailById(threadId) {
 }
 
 export async function createReplyByThreadId({ threadId, body }) {
-  const client = await pool.connect();
-  try {
-    await client.query("begin");
-
+  return withTransaction(pool, async (client) => {
     const row = await repo.findNextPostNumberForUpdateByThreadId(client, threadId);
     if (!row) {
       throw new DomainError("not_found");
@@ -30,12 +28,6 @@ export async function createReplyByThreadId({ threadId, body }) {
 
     await repo.bumpAndIncrementNextPostNumber(client, threadId);
 
-    await client.query("commit");
     return { post };
-  } catch (err) {
-    await client.query("rollback");
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }

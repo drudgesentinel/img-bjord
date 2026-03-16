@@ -1,5 +1,6 @@
 import { pool } from "../../db.js";
 import { DomainError } from "../../lib/domainErrors.js";
+import { withTransaction } from "../../lib/withTransaction.js";
 import {
   slugifySubject,
   makeThreadToken,
@@ -16,10 +17,7 @@ export async function createThread({ boardSlug, subject, body }) {
   const subjectOrNull = subject ?? null;
   const subjectSlug = slugifySubject(subjectOrNull ?? "");
 
-  const client = await pool.connect();
-  try {
-    await client.query("begin");
-
+  return withTransaction(pool, async (client) => {
     const boardExists = await repo.existsBoardBySlug(client, boardSlug);
     if (!boardExists) {
       throw new DomainError("board_not_found");
@@ -60,16 +58,9 @@ export async function createThread({ boardSlug, subject, body }) {
 
     await repo.incrementNextPostNumber(client, thread.id);
 
-    await client.query("commit");
-
     const canonicalPath = `/api/boards/${thread.board_slug}/${thread.subject_slug}/${thread.token}`;
     return { thread, firstPost, canonicalPath };
-  } catch (err) {
-    await client.query("rollback");
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 export async function listThreads({ boardSlug, limit = 20 }) {
@@ -97,10 +88,7 @@ export async function getThreadDetailByPretty({ boardSlug, subjectSlug, token })
 }
 
 export async function createReplyByPretty({ boardSlug, subjectSlug, token, body }) {
-  const client = await pool.connect();
-  try {
-    await client.query("begin");
-
+  return withTransaction(pool, async (client) => {
     const thread = await repo.findThreadForUpdateByPretty(client, {
       boardSlug,
       subjectSlug,
@@ -119,12 +107,6 @@ export async function createReplyByPretty({ boardSlug, subjectSlug, token, body 
 
     await repo.bumpAndIncrementNextPostNumber(client, thread.id);
 
-    await client.query("commit");
     return { post };
-  } catch (err) {
-    await client.query("rollback");
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
