@@ -99,15 +99,15 @@ multi MAIN('admin', $cmd, $username?) {
                 exit 1;
             }
 
-            run-or-die <podman exec -i>, $CONTAINER,
-                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-v", "u={$target-username}",
-                "-c", "UPDATE users SET is_admin = true WHERE username = :'u';";
+            my $escaped-username = $target-username.subst("'", "''", :g);
 
             run-or-die <podman exec -i>, $CONTAINER,
                 <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-v", "u={$target-username}",
-                "-c", "SELECT username, is_admin FROM users WHERE username = :'u';";
+                "-c", "UPDATE users SET is_admin = true WHERE username = '{$escaped-username}';";
+
+            run-or-die <podman exec -i>, $CONTAINER,
+                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
+                "-c", "SELECT username, is_admin FROM users WHERE username = '{$escaped-username}';";
         }
 
         default {
