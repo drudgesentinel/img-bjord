@@ -1,12 +1,13 @@
-export async function load({ params, fetch }) {
-  const res = await fetch(`/api/threads/${params.thread}`);
+import { api } from '$lib/api';
+import type { ThreadDetailResponse } from '$lib/types';
 
-  if (!res.ok) {
-    throw new Error('Failed to load thread');
-  }
+export async function load({ params, fetch }) {
+  const data = await api<ThreadDetailResponse>(fetch, `/api/threads/${params.thread}`);
 
   return {
     board: params.board,
-    thread: await res.json()
+    threadId: params.thread,
+    thread: data.thread,
+    posts: data.posts
   };
 }

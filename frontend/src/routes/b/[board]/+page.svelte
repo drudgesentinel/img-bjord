@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import type { Thread } from '$lib/types';
+  import { api } from '$lib/api';
+  import type { CreateThreadResponse, Thread } from '$lib/types';
 
   let { data } = $props<{
     data: {
@@ -9,17 +10,17 @@
     };
   }>();
 
-  let subject = '';
-  let body = '';
-  let creating = false;
-  let error = '';
+  let subject = $state('');
+  let body = $state('');
+  let creating = $state(false);
+  let error = $state('');
 
   async function createThread() {
     error = '';
     creating = true;
 
     try {
-      const res = await fetch(`/api/boards/${data.board}/threads`, {
+      const payload = await api<CreateThreadResponse>(fetch, `/api/boards/${data.board}/threads`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json'
@@ -30,14 +31,9 @@
         })
       });
 
-      const payload = await res.json();
-
-      if (!res.ok) {
-        error = payload?.error ?? 'Failed to create thread';
-        return;
-      }
-
-      const canonicalPath = payload.canonicalPath as string;
+      const canonicalPath =
+        payload.canonicalPath ||
+        `/api/boards/${payload.thread.board_slug}/${payload.thread.subject_slug}/${payload.thread.token}`;
 
       // backend returns /api/boards/:slug/:subjectSlug/:token
       // frontend route should be /b/:slug/:subjectSlug/:token

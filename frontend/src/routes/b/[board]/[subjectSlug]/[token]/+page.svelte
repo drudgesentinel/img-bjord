@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import type { Post, Thread } from '$lib/types';
+  import { api } from '$lib/api';
+  import type { Post, ReplyResponse, Thread } from '$lib/types';
 
   let { data } = $props<{
     data: {
@@ -10,16 +11,17 @@
     };
   }>();
 
-  let body = '';
-  let replying = false;
-  let error = '';
+  let body = $state('');
+  let replying = $state(false);
+  let error = $state('');
 
   async function submitReply() {
     error = '';
     replying = true;
 
     try {
-      const res = await fetch(
+      await api<ReplyResponse>(
+        fetch,
         `/api/boards/${data.board}/${data.thread.subject_slug}/${data.thread.token}/replies`,
         {
           method: 'POST',
@@ -29,13 +31,6 @@
           body: JSON.stringify({ body })
         }
       );
-
-      const payload = await res.json();
-
-      if (!res.ok) {
-        error = payload?.error ?? 'Failed to post reply';
-        return;
-      }
 
       body = '';
       await invalidateAll();

@@ -25,7 +25,7 @@ router.get(
       const { id: threadId } = req.validatedParams;
 
       const t = await pool.query(
-        `select id, board_slug, slug, subject, created_at, bumped_at
+        `select id, board_slug, subject, subject_slug, token, created_at, bumped_at
        from threads
        where id = $1`,
         [threadId],
