@@ -13,6 +13,9 @@ const ADJECTIVES = [
   "furious",
   "gentle",
   "ragged",
+  "plague",
+  "one eyed",
+  "punished",
 ];
 
 const NOUNS = [
@@ -27,6 +30,12 @@ const NOUNS = [
   "anvil",
   "comet",
   "bangus",
+  "ak47",
+  "a10_warthog",
+  "paladin",
+  "wastrel",
+  "sliver",
+  "wretch",
 ];
 
 export function slugifySubject(subject) {
