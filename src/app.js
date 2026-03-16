@@ -1,9 +1,11 @@
 import express from "express";
 import helmet from "helmet";
 import pino from "pino-http";
+import session from "express-session";
 import { getUploadDir, isLocalMediaStorage } from "./lib/mediaStorage.js";
 
 import healthRouter from "./routes/health.js";
+import authRouter from "./features/auth/router.js";
 import boardsRouter from "./features/boards/router.js";
 import threadsRouter from "./features/threads/router.js";
 
@@ -31,6 +33,23 @@ export function createApp() {
  
   app.use(helmet());
   app.use(pino());
+
+  const sessionSecret = process.env.SESSION_SECRET || "dev-only-insecure-session-secret";
+  app.use(
+    session({
+      name: "bjord.sid",
+      secret: sessionSecret,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      },
+    }),
+  );
+
   app.use(express.json({ limit: "64kb" }));
 
   if (isLocalMediaStorage()) {
@@ -38,6 +57,7 @@ export function createApp() {
   }
 
   app.use(healthRouter);
+  app.use("/api/auth", authRouter);
   app.use("/api/boards", boardsRouter);
   app.use("/api/threads", threadsRouter);
 

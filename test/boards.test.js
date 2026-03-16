@@ -6,6 +6,7 @@ import { dbPing, dbReset, dbClose } from "./_db.js";
 
 describe("boards", () => {
   const app = createApp();
+  let agent;
 
   beforeAll(async () => {
     await dbPing();
@@ -13,6 +14,12 @@ describe("boards", () => {
 
   beforeEach(async () => {
     await dbReset();
+    agent = request.agent(app);
+    const registerRes = await agent
+      .post("/api/auth/register")
+      .set("content-type", "application/json")
+      .send({ password: "correct horse battery staple" });
+    expect(registerRes.status).toBe(201);
   });
 
   afterAll(async () => {
@@ -20,7 +27,7 @@ describe("boards", () => {
   });
 
   it("can create a thread on a board (OP is post #1) and includes token/subject_slug", async () => {
-    const createRes = await request(app)
+    const createRes = await agent
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
       .send({ subject: "Lifting Routine", body: "op" });
@@ -46,12 +53,12 @@ describe("boards", () => {
   });
 
   it("lists threads for a board", async () => {
-    await request(app)
+    await agent
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
       .send({ subject: "A", body: "op A" });
 
-    const listRes = await request(app).get("/api/boards/b/threads?limit=10");
+    const listRes = await agent.get("/api/boards/b/threads?limit=10");
     expect(listRes.status).toBe(200);
     expect(Array.isArray(listRes.body.threads)).toBe(true);
     expect(listRes.body.threads.length).toBe(1);
@@ -63,12 +70,12 @@ describe("boards", () => {
   });
 
   it("list threads returns newest bumped first within the board", async () => {
-    const a = await request(app)
+    const a = await agent
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
       .send({ subject: "A", body: "op A" });
 
-    const b = await request(app)
+    const b = await agent
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
       .send({ subject: "B", body: "op B" });
@@ -80,14 +87,14 @@ describe("boards", () => {
     const bThread = b.body.thread;
 
     // bump A so it should rise above B
-    const bump = await request(app)
+    const bump = await agent
       .post(`/api/boards/b/${aThread.subject_slug}/${aThread.token}/replies`)
       .set("content-type", "application/json")
       .send({ body: "bump" });
 
     expect(bump.status).toBe(201);
 
-    const listRes = await request(app).get("/api/boards/b/threads?limit=10");
+    const listRes = await agent.get("/api/boards/b/threads?limit=10");
     expect(listRes.status).toBe(200);
 
     const ids = listRes.body.threads.map((t) => t.id);
@@ -102,7 +109,7 @@ describe("boards", () => {
   });
 
   it("validation: rejects bad board slug", async () => {
-    const res = await request(app)
+    const res = await agent
       .post("/api/boards/bad!/threads")
       .set("content-type", "application/json")
       .send({ subject: "x", body: "y" });

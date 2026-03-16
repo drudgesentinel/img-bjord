@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { validateBody, validateParams, validateQuery } from "../../middleware/validate.js";
 import { uploadOptionalImage } from "../../middleware/uploadImage.js";
+import { requireAuth } from "../../middleware/requireAuth.js";
 import { isDomainError } from "../../lib/domainErrors.js";
 import { processImageUpload } from "../../lib/processImageUpload.js";
 import { getThreadDetailById, createReplyByThreadId, deleteThreadById } from "./service.js";
@@ -40,6 +41,7 @@ router.get("/:id", validateParams(threadIdParamsSchema), async (req, res, next) 
 
 router.post(
   "/:id/replies",
+  requireAuth,
   validateParams(threadIdParamsSchema),
   uploadOptionalImage("image"),
   validateBody(replySchema),
@@ -81,7 +83,7 @@ router.post(
   },
 );
 
-router.delete("/:id", validateParams(threadIdParamsSchema), validateQuery(deleteThreadQuerySchema), async (req, res, next) => {
+router.delete("/:id", requireAuth, validateParams(threadIdParamsSchema), validateQuery(deleteThreadQuerySchema), async (req, res, next) => {
   try {
     const { id: threadId } = req.validatedParams;
     const { key } = req.validatedQuery;

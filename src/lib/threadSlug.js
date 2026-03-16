@@ -24,6 +24,13 @@ const ADJECTIVES = [
   "feeble",
   "overpowered",
   "nerfed",
+  "golden",
+  "pain",
+  "forever",
+  "forbidden",
+  "void",
+  "knight of the",
+  "bearer of the",
 ];
 
 const NOUNS = [
@@ -33,7 +40,7 @@ const NOUNS = [
   "ghost",
   "dragon",
   "pickle",
-  "falcon",
+  "crow",
   "lantern",
   "anvil",
   "comet",
@@ -51,6 +58,12 @@ const NOUNS = [
   "cursed one",
   "maiden",
   "demise",
+  "seer",
+  "wasteland",
+  "chemicals",
+  "wizard",
+  "blasphemer",
+  "apostate",
 ];
 
 export function slugifySubject(subject) {
@@ -73,6 +86,23 @@ export function makeThreadToken() {
   const adj = ADJECTIVES[crypto.randomInt(0, ADJECTIVES.length)];
   const noun = NOUNS[crypto.randomInt(0, NOUNS.length)];
   return `${adj}_${noun}`; // lowercase + underscore
+}
+
+function sanitizeSlugPart(value) {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_+/g, "_")
+    .slice(0, 40);
+}
+
+export function makeGeneratedUsername() {
+  const adj = ADJECTIVES[crypto.randomInt(0, ADJECTIVES.length)];
+  const noun = NOUNS[crypto.randomInt(0, NOUNS.length)];
+  const suffix = crypto.randomInt(1000, 10000);
+  const handle = `${sanitizeSlugPart(adj)}_${sanitizeSlugPart(noun)}_${suffix}`;
+  return handle || `anon_${suffix}`;
 }
 
 export function normalizeToken(token) {

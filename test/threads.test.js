@@ -6,6 +6,7 @@ import { dbPing, dbReset, dbClose } from "./_db.js";
 
 describe("threads", () => {
   const app = createApp();
+  let agent;
 
   beforeAll(async () => {
     await dbPing();
@@ -13,6 +14,12 @@ describe("threads", () => {
 
   beforeEach(async () => {
     await dbReset();
+    agent = request.agent(app);
+    const registerRes = await agent
+      .post("/api/auth/register")
+      .set("content-type", "application/json")
+      .send({ password: "correct horse battery staple" });
+    expect(registerRes.status).toBe(201);
   });
 
   afterAll(async () => {
@@ -20,7 +27,7 @@ describe("threads", () => {
   });
 
   async function createThread(subject = "t", body = "op") {
-    const res = await request(app)
+    const res = await agent
       .post("/api/boards/b/threads")
       .set("content-type", "application/json")
       .send({ subject, body });
@@ -53,7 +60,7 @@ describe("threads", () => {
   it("replies add a post with incrementing post_number", async () => {
     const { thread } = await createThread("t", "op");
 
-    const r1 = await request(app)
+    const r1 = await agent
       .post(`/api/boards/b/${thread.subject_slug}/${thread.token}/replies`)
       .set("content-type", "application/json")
       .send({ body: "reply 1" });
@@ -61,7 +68,7 @@ describe("threads", () => {
     expect(r1.status).toBe(201);
     expect(r1.body.post.post_number).toBe(2);
 
-    const r2 = await request(app)
+    const r2 = await agent
       .post(`/api/boards/b/${thread.subject_slug}/${thread.token}/replies`)
       .set("content-type", "application/json")
       .send({ body: "reply 2" });
@@ -87,7 +94,7 @@ describe("threads", () => {
   it("validation: rejects blank reply body", async () => {
     const { thread } = await createThread("t", "op");
 
-    const res = await request(app)
+    const res = await agent
       .post(`/api/boards/b/${thread.subject_slug}/${thread.token}/replies`)
       .set("content-type", "application/json")
       .send({ body: "   " });
@@ -99,7 +106,7 @@ describe("threads", () => {
   it("can hard delete a thread by board + subjectSlug + token", async () => {
     const { thread, deleteKey } = await createThread("delete me", "op");
 
-    const del = await request(app).delete(
+    const del = await agent.delete(
       `/api/boards/b/${thread.subject_slug}/${thread.token}?key=${encodeURIComponent(deleteKey)}`,
     );
 
@@ -115,7 +122,7 @@ describe("threads", () => {
   it("can hard delete a thread by UUID", async () => {
     const { thread, deleteKey } = await createThread("delete by id", "op");
 
-    const del = await request(app).delete(`/api/threads/${thread.id}?key=${encodeURIComponent(deleteKey)}`);
+    const del = await agent.delete(`/api/threads/${thread.id}?key=${encodeURIComponent(deleteKey)}`);
     expect(del.status).toBe(204);
 
     const viewById = await request(app).get(`/api/threads/${thread.id}`);
@@ -125,7 +132,7 @@ describe("threads", () => {
   it("rejects pretty-route deletion without key", async () => {
     const { thread } = await createThread("delete denied", "op");
 
-    const del = await request(app).delete(`/api/boards/b/${thread.subject_slug}/${thread.token}`);
+    const del = await agent.delete(`/api/boards/b/${thread.subject_slug}/${thread.token}`);
     expect(del.status).toBe(400);
     expect(del.body.error).toBe("validation_error");
   });
@@ -133,7 +140,7 @@ describe("threads", () => {
   it("rejects UUID deletion with wrong key", async () => {
     const { thread } = await createThread("delete denied by id", "op");
 
-    const del = await request(app).delete(
+    const del = await agent.delete(
       `/api/threads/${thread.id}?key=${encodeURIComponent("wrong-key")}`,
     );
     expect(del.status).toBe(403);

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { validateBody, validateParams, validateQuery } from "../../middleware/validate.js";
 import { uploadOptionalImage } from "../../middleware/uploadImage.js";
+import { requireAuth } from "../../middleware/requireAuth.js";
 import { isDomainError } from "../../lib/domainErrors.js";
 import { processImageUpload } from "../../lib/processImageUpload.js";
 import {
@@ -72,6 +73,7 @@ router.get("/", async (req, res, next) => {
 
 router.post(
   "/:slug/threads",
+  requireAuth,
   validateParams(boardParamsSchema),
   uploadOptionalImage("image"),
   validateBody(createThreadSchema),
@@ -158,6 +160,7 @@ router.get(
 
 router.post(
   "/:slug/:subjectSlug/:token/replies",
+  requireAuth,
   validateParams(threadPrettyParamsSchema),
   uploadOptionalImage("image"),
   validateBody(replySchema),
@@ -201,6 +204,7 @@ router.post(
 
 router.delete(
   "/:slug/:subjectSlug/:token",
+  requireAuth,
   validateParams(threadPrettyParamsSchema),
   validateQuery(deleteThreadQuerySchema),
   async (req, res, next) => {

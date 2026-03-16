@@ -7,6 +7,14 @@ create table if not exists boards (
   created_at timestamptz not null default now()
 );
 
+-- users
+create table if not exists users (
+  id uuid primary key default gen_random_uuid(),
+  username text not null unique,
+  password_hash text not null,
+  created_at timestamptz not null default now()
+);
+
 -- threads (no legacy support)
 create table if not exists threads (
   id uuid primary key default gen_random_uuid(),
