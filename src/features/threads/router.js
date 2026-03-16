@@ -49,6 +49,7 @@ router.post(
     try {
       const { id: threadId } = req.validatedParams;
       const { body } = req.validatedBody;
+      const authorUserId = req.session.userId;
       const image = await processImageUpload(req.file);
 
       if (!body && !image) {
@@ -61,7 +62,7 @@ router.post(
         });
       }
 
-      const created = await createReplyByThreadId({ threadId, body, image });
+      const created = await createReplyByThreadId({ threadId, body, image, authorUserId });
       res.status(201).json(serializeReplyResponse(created));
     } catch (err) {
       if (isDomainError(err, "validation_error")) {

@@ -11,6 +11,10 @@ export type Thread = {
 export type Post = {
   id: string;
   thread_id: string;
+  author_user_id?: string | null;
+  author_username?: string | null;
+  author_is_admin?: boolean;
+  author_tags?: string[];
   post_number: number;
   created_at: string;
   body: string;

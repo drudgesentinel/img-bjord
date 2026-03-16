@@ -81,6 +81,7 @@ router.post(
     try {
       const { slug: boardSlug } = req.validatedParams;
       const { subject, body } = req.validatedBody;
+      const authorUserId = req.session.userId;
       const image = await processImageUpload(req.file);
 
       if (!body && !image) {
@@ -93,7 +94,7 @@ router.post(
         });
       }
 
-      const created = await createThread({ boardSlug, subject, body, image });
+      const created = await createThread({ boardSlug, subject, body, image, authorUserId });
       res.status(201).json(serializeCreateThreadResponse(created));
     } catch (err) {
       if (isDomainError(err, "validation_error")) {
@@ -168,6 +169,7 @@ router.post(
     try {
       const { slug: boardSlug, subjectSlug, token } = req.validatedParams;
       const { body } = req.validatedBody;
+      const authorUserId = req.session.userId;
       const image = await processImageUpload(req.file);
 
       if (!body && !image) {
@@ -180,7 +182,7 @@ router.post(
         });
       }
 
-      const created = await createReplyByPretty({ boardSlug, subjectSlug, token, body, image });
+      const created = await createReplyByPretty({ boardSlug, subjectSlug, token, body, image, authorUserId });
       res.status(201).json(serializeReplyResponse(created));
     } catch (err) {
       if (isDomainError(err, "validation_error")) {

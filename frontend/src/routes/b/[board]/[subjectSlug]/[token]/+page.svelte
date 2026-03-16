@@ -14,6 +14,7 @@
   let body = $state('');
   let replying = $state(false);
   let deleting = $state(false);
+  let opMenuOpen = $state(false);
   let error = $state('');
   let expandedImageUrl = $state<string | null>(null);
   let imageFile = $state<File | null>(null);
@@ -62,7 +63,13 @@
     expandedImageUrl = null;
   }
 
+  function displayUsername(username?: string | null) {
+    if (!username) return 'anonymous';
+    return username.replace(/_\d+$/, '');
+  }
+
   async function deleteThread() {
+    opMenuOpen = false;
     if (!confirm('Delete this thread permanently?')) return;
     const key = prompt('Enter deletion key');
     if (!key?.trim()) return;
@@ -141,12 +148,6 @@
   </small>
 </p>
 
-<p>
-  <button type="button" on:click={deleteThread} disabled={deleting || replying}>
-    {deleting ? 'Deleting...' : 'Delete thread'}
-  </button>
-</p>
-
 <hr />
 
 <section>
@@ -156,6 +157,40 @@
     <article class:reply={post.post_number > 1}>
       <p>
         <strong>#{post.post_number}</strong>
+        <strong class="author-name">
+          {displayUsername(post.author_username)}
+          {#if post.author_is_admin}
+            <span class="admin-icon" aria-label="admin" title="admin">♠</span>
+          {/if}
+        </strong>
+        {#if post.post_number === 1}
+          <span class="op-menu">
+            <button
+              type="button"
+              class="op-menu-trigger"
+              aria-label="Thread options"
+              title="Thread options"
+              on:click={() => (opMenuOpen = !opMenuOpen)}
+              disabled={deleting || replying}
+            >
+              ⋯
+            </button>
+            {#if opMenuOpen}
+              <span class="op-menu-panel">
+                <button type="button" on:click={deleteThread} disabled={deleting || replying}>
+                  {deleting ? 'Deleting...' : 'Delete thread'}
+                </button>
+              </span>
+            {/if}
+          </span>
+        {/if}
+        {#if post.author_tags && post.author_tags.length > 0}
+          <span class="post-tags">
+            {#each post.author_tags as tag}
+              <span class="tag-pill">{tag}</span>
+            {/each}
+          </span>
+        {/if}
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
       <pre>{post.body}</pre>
@@ -265,5 +300,56 @@
     width: auto;
     height: auto;
     object-fit: contain;
+  }
+
+  .author-name {
+    margin-left: 0.45rem;
+  }
+
+  .admin-icon {
+    margin-left: 0.2rem;
+  }
+
+  .post-tags {
+    margin-left: 0.35rem;
+    display: inline-flex;
+    gap: 0.25rem;
+    vertical-align: middle;
+  }
+
+  .tag-pill {
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: #e6eef8;
+    border: 1px solid #c7d8ef;
+    border-radius: 999px;
+    padding: 0.05rem 0.4rem;
+  }
+
+  .op-menu {
+    display: inline-block;
+    position: relative;
+    margin-left: 0.4rem;
+  }
+
+  .op-menu-trigger {
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 6px;
+    line-height: 1;
+    padding: 0.05rem 0.35rem 0.2rem;
+  }
+
+  .op-menu-panel {
+    position: absolute;
+    top: 1.4rem;
+    right: 0;
+    z-index: 5;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 0.35rem;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    white-space: nowrap;
   }
 </style>

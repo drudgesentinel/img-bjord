@@ -10,6 +10,10 @@ export function serializePost(post) {
   return {
     id: post.id,
     thread_id: post.thread_id,
+    author_user_id: post.author_user_id ?? null,
+    author_username: post.author_username ?? null,
+    author_is_admin: post.author_is_admin ?? false,
+    author_tags: post.author_tags ?? [],
     post_number: post.post_number,
     created_at: post.created_at,
     body: post.body,

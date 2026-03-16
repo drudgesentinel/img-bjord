@@ -27,10 +27,14 @@ export async function deleteThreadById(db, threadId) {
 
 export async function listPostsByThreadId(db, threadId) {
   const r = await db.query(
-    `select id, thread_id, post_number, created_at, body,
-            image_url, image_mime_type, image_size_bytes, image_width, image_height
-     from posts
-     where thread_id = $1
+    `select p.id, p.thread_id, p.author_user_id, p.post_number, p.created_at, p.body,
+            p.image_url, p.image_mime_type, p.image_size_bytes, p.image_width, p.image_height,
+            u.username as author_username,
+            coalesce(u.is_admin, false) as author_is_admin,
+            coalesce(u.tags, '{}'::text[]) as author_tags
+     from posts p
+     left join users u on u.id = p.author_user_id
+     where p.thread_id = $1
      order by post_number asc`,
     [threadId],
   );
@@ -52,14 +56,24 @@ export async function findNextPostNumberForUpdateByThreadId(db, threadId) {
 
 export async function insertPost(
   db,
-  { threadId, postNumber, body, imageUrl = null, imageMimeType = null, imageSizeBytes = null, imageWidth = null, imageHeight = null },
+  {
+    threadId,
+    authorUserId = null,
+    postNumber,
+    body,
+    imageUrl = null,
+    imageMimeType = null,
+    imageSizeBytes = null,
+    imageWidth = null,
+    imageHeight = null,
+  },
 ) {
   const r = await db.query(
-    `insert into posts (thread_id, post_number, body, image_url, image_mime_type, image_size_bytes, image_width, image_height)
-     values ($1, $2, $3, $4, $5, $6, $7, $8)
-     returning id, thread_id, post_number, created_at, body,
+    `insert into posts (thread_id, author_user_id, post_number, body, image_url, image_mime_type, image_size_bytes, image_width, image_height)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     returning id, thread_id, author_user_id, post_number, created_at, body,
                image_url, image_mime_type, image_size_bytes, image_width, image_height`,
-    [threadId, postNumber, body, imageUrl, imageMimeType, imageSizeBytes, imageWidth, imageHeight],
+    [threadId, authorUserId, postNumber, body, imageUrl, imageMimeType, imageSizeBytes, imageWidth, imageHeight],
   );
 
   return r.rows[0];

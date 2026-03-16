@@ -14,7 +14,7 @@ export async function listBoards() {
   return repo.listBoards(pool);
 }
 
-export async function createThread({ boardSlug, subject, body, image = null }) {
+export async function createThread({ boardSlug, subject, body, image = null, authorUserId }) {
   const subjectOrNull = subject ?? null;
   const subjectSlug = slugifySubject(subjectOrNull ?? "");
   const deleteKey = generateDeleteKey();
@@ -56,6 +56,7 @@ export async function createThread({ boardSlug, subject, body, image = null }) {
 
     const firstPost = await repo.insertPost(client, {
       threadId: thread.id,
+      authorUserId,
       postNumber: row.next_post_number,
       body,
       imageUrl: image?.imageUrl ?? null,
@@ -96,7 +97,7 @@ export async function getThreadDetailByPretty({ boardSlug, subjectSlug, token })
   return { thread, posts };
 }
 
-export async function createReplyByPretty({ boardSlug, subjectSlug, token, body, image = null }) {
+export async function createReplyByPretty({ boardSlug, subjectSlug, token, body, image = null, authorUserId }) {
   return withTransaction(pool, async (client) => {
     const thread = await repo.findThreadForUpdateByPretty(client, {
       boardSlug,
@@ -110,6 +111,7 @@ export async function createReplyByPretty({ boardSlug, subjectSlug, token, body,
 
     const post = await repo.insertPost(client, {
       threadId: thread.id,
+      authorUserId,
       postNumber: thread.next_post_number,
       body,
       imageUrl: image?.imageUrl ?? null,
