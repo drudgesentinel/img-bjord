@@ -3,8 +3,8 @@ import helmet from "helmet";
 import pino from "pino-http";
 
 import healthRouter from "./routes/health.js";
-import threadsRouter from "./routes/threads.js";
-import boardsRouter from "./routes/boards.js";
+import boardsRouter from "./features/boards/router.js";
+import threadsRouter from "./features/threads/router.js";
 
 
 // moved the app logic here so it can be imported for tests
