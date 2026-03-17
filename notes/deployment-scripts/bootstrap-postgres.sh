@@ -26,31 +26,36 @@ if [[ ! -f "db/schema.sql" ]]; then
   exit 1
 fi
 
-sudo -u postgres psql <<SQL
-DO \
-\$\$\
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${APP_DB_USER}') THEN
-    CREATE ROLE ${APP_DB_USER} LOGIN PASSWORD '${APP_DB_PASS}';
-  ELSE
-    ALTER ROLE ${APP_DB_USER} WITH LOGIN PASSWORD '${APP_DB_PASS}';
-  END IF;
-END
-\$\$;
+sudo -u postgres psql \
+  -v ON_ERROR_STOP=1 \
+  --set=db_user="${APP_DB_USER}" \
+  --set=db_name="${APP_DB_NAME}" \
+  --set=db_pass="${APP_DB_PASS}" <<'SQL'
 
-DO \
-\$\$\
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '${APP_DB_NAME}') THEN
-    CREATE DATABASE ${APP_DB_NAME} OWNER ${APP_DB_USER};
-  END IF;
-END
-\$\$;
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'db_user', :'db_pass')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db_user')
+\gexec
 
-REVOKE ALL ON DATABASE ${APP_DB_NAME} FROM PUBLIC;
+SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'db_user', :'db_pass')
+\gexec
+
+SELECT format('CREATE DATABASE %I OWNER %I', :'db_name', :'db_user')
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db_name')
+\gexec
+
+SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'db_name')
+\gexec
 SQL
 
-psql "postgres://${APP_DB_USER}:${APP_DB_PASS}@${APP_DB_HOST}:${APP_DB_PORT}/${APP_DB_NAME}" -f db/schema.sql
+PGPASSWORD="${APP_DB_PASS}" psql \
+  -v ON_ERROR_STOP=1 \
+  -h "${APP_DB_HOST}" \
+  -p "${APP_DB_PORT}" \
+  -U "${APP_DB_USER}" \
+  -d "${APP_DB_NAME}" \
+  -f db/schema.sql
 
-echo "Done. Set DATABASE_URL to:"
-echo "postgres://${APP_DB_USER}:<redacted>@${APP_DB_HOST}:${APP_DB_PORT}/${APP_DB_NAME}"
+echo "Done."
+echo "Set DATABASE_URL with a URL-encoded password if it has special characters."
+echo "Example (redacted): postgres://${APP_DB_USER}:<urlencoded-password>@${APP_DB_HOST}:${APP_DB_PORT}/${APP_DB_NAME}"
+echo "Helper: APP_DB_PASS='<password>' APP_DB_USER='${APP_DB_USER}' APP_DB_NAME='${APP_DB_NAME}' bash notes/deployment-scripts/print-database-url.sh"
