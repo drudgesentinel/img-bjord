@@ -56,6 +56,7 @@ const USERNAME_ADJECTIVES = [
   "heartbreak",
   "yung",
   "ancient of the",
+  "knight of the",
 ];
 
 const USERNAME_NOUNS = [
@@ -108,6 +109,12 @@ const USERNAME_NOUNS = [
   "darkness",
   "ennui",
   "knight",
+  "inheritance",
+  "watcher",
+  "sentinel",
+  "dreamer",
+  "cult",
+  "machine",
 ];
 
 function sanitizeSlugPart(value) {
