@@ -2,6 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
+  import { getEmbeddableLinks } from '$lib/embeds';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
 
   let { data } = $props<{
@@ -182,7 +183,26 @@
         {/if}
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
-      <pre>{post.body}</pre>
+      <pre class="post-body">{post.body}</pre>
+      {@const embeds = getEmbeddableLinks(post.body)}
+      {#if embeds.length > 0}
+        <div class="post-embeds">
+          {#each embeds as embed}
+            {#if embed.kind === 'directVideo'}
+              <video src={embed.embedUrl} controls preload="metadata"></video>
+            {:else}
+              <iframe
+                src={embed.embedUrl}
+                title={embed.title}
+                loading="lazy"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+              ></iframe>
+            {/if}
+          {/each}
+        </div>
+      {/if}
       {#if post.image_url}
         <figure class="post-image">
           <button type="button" class="image-button" on:click={() => openImage(post.image_url!)}>
@@ -213,7 +233,7 @@
 
   <label>
     Body
-    <textarea bind:value={body} maxlength="5000" rows="8" on:paste={handleBodyPaste}></textarea>
+    <textarea class="post-editor" bind:value={body} maxlength="5000" rows="8" on:paste={handleBodyPaste}></textarea>
   </label>
 
   <div>
@@ -253,6 +273,22 @@
 
   .post-image {
     margin: 0.5rem 0 0;
+  }
+
+  .post-embeds {
+    margin-top: 0.5rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .post-embeds iframe,
+  .post-embeds video {
+    width: min(100%, 560px);
+    max-width: 560px;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    border-radius: 8px;
+    background: #111;
   }
 
   .post-image img {
