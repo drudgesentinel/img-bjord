@@ -1,8 +1,3 @@
-export async function countUsers(db) {
-  const r = await db.query(`select count(*)::int as c from users`);
-  return r.rows[0]?.c ?? 0;
-}
-
 export async function markUsernameConsumed(db, username) {
   await db.query(
     `insert into consumed_usernames (username)

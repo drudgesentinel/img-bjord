@@ -63,9 +63,6 @@ export async function registerUserWithGeneratedUsername({ password, username, ac
   }
 
   return withTransaction(pool, async (client) => {
-    const existingUsers = await repo.countUsers(client);
-    const isFirstUser = existingUsers === 0;
-
     let usernameToUse = requestedUsername;
     if (!usernameToUse) {
       const [generated] = await getRegistrationUsernameCandidates(1, client);
@@ -85,8 +82,8 @@ export async function registerUserWithGeneratedUsername({ password, username, ac
       username: usernameToUse,
       passwordHash,
       activationCode: normalizedActivationCode,
-      isApproved: isFirstUser,
-      isAdmin: isFirstUser,
+      isApproved: false,
+      isAdmin: false,
     });
   });
 }

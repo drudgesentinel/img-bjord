@@ -2,7 +2,7 @@ import "dotenv/config";
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { dbPing, dbReset, dbClose } from "./_db.js";
+import { createUser, dbPing, dbReset, dbClose } from "./_db.js";
 
 describe("threads", () => {
   const app = createApp();
@@ -14,12 +14,19 @@ describe("threads", () => {
 
   beforeEach(async () => {
     await dbReset();
+    await createUser({
+      username: "admin_0001",
+      password: "correct horse battery staple",
+      isApproved: true,
+      isAdmin: true,
+    });
+
     agent = request.agent(app);
-    const registerRes = await agent
-      .post("/api/auth/register")
+    const loginRes = await agent
+      .post("/api/auth/login")
       .set("content-type", "application/json")
-      .send({ password: "correct horse battery staple" });
-    expect(registerRes.status).toBe(201);
+      .send({ username: "admin_0001", password: "correct horse battery staple" });
+    expect(loginRes.status).toBe(200);
   });
 
   afterAll(async () => {
@@ -35,12 +42,31 @@ describe("threads", () => {
     expect(res.status).toBe(201);
 
     const thread = res.body.thread;
-    const deleteKey = res.body.deleteKey;
     expect(thread.subject_slug).toBeTruthy();
     expect(thread.token).toBeTruthy();
-    expect(deleteKey).toBeTruthy();
 
-    return { thread, deleteKey };
+    return { thread };
+  }
+
+  async function createApprovedNonAdminAgent(password = "another pass phrase") {
+    const nonAdminAgent = request.agent(app);
+    const registerRes = await nonAdminAgent
+      .post("/api/auth/register")
+      .set("content-type", "application/json")
+      .send({ password, activationCode: "please approve" });
+
+    expect(registerRes.status).toBe(202);
+
+    const approveRes = await agent.post(`/api/admin/users/${registerRes.body.user.id}/approve`);
+    expect(approveRes.status).toBe(204);
+
+    const loginRes = await nonAdminAgent
+      .post("/api/auth/login")
+      .set("content-type", "application/json")
+      .send({ username: registerRes.body.user.username, password });
+
+    expect(loginRes.status).toBe(200);
+    return nonAdminAgent;
   }
 
   it("can view a thread by board + subjectSlug + token (posts ordered by post_number)", async () => {
@@ -103,12 +129,27 @@ describe("threads", () => {
     expect(res.body.error).toBe("validation_error");
   });
 
-  it("can hard delete a thread by board + subjectSlug + token", async () => {
-    const { thread, deleteKey } = await createThread("delete me", "op");
-
-    const del = await agent.delete(
-      `/api/boards/b/${thread.subject_slug}/${thread.token}?key=${encodeURIComponent(deleteKey)}`,
+  it("accepts GIF upload and preserves GIF mime type", async () => {
+    const gifBytes = Buffer.from(
+      "47494638396101000100800000000000ffffff21f90401000000002c00000000010001000002024401003b",
+      "hex",
     );
+
+    const res = await agent
+      .post("/api/boards/b/threads")
+      .field("subject", "gif upload")
+      .field("body", "")
+      .attach("image", gifBytes, { filename: "tiny.gif", contentType: "image/gif" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.firstPost?.media_mime_type).toBe("image/gif");
+    expect(res.body.firstPost?.media_url).toContain(".gif");
+  });
+
+  it("admin can hard delete a thread by board + subjectSlug + token", async () => {
+    const { thread } = await createThread("delete me", "op");
+
+    const del = await agent.delete(`/api/boards/b/${thread.subject_slug}/${thread.token}`);
 
     expect(del.status).toBe(204);
 
@@ -119,31 +160,31 @@ describe("threads", () => {
     expect(view.status).toBe(404);
   });
 
-  it("can hard delete a thread by UUID", async () => {
-    const { thread, deleteKey } = await createThread("delete by id", "op");
+  it("admin can hard delete a thread by UUID", async () => {
+    const { thread } = await createThread("delete by id", "op");
 
-    const del = await agent.delete(`/api/threads/${thread.id}?key=${encodeURIComponent(deleteKey)}`);
+    const del = await agent.delete(`/api/threads/${thread.id}`);
     expect(del.status).toBe(204);
 
     const viewById = await request(app).get(`/api/threads/${thread.id}`);
     expect(viewById.status).toBe(404);
   });
 
-  it("rejects pretty-route deletion without key", async () => {
+  it("forbids pretty-route deletion for non-admin", async () => {
     const { thread } = await createThread("delete denied", "op");
+    const nonAdminAgent = await createApprovedNonAdminAgent();
 
-    const del = await agent.delete(`/api/boards/b/${thread.subject_slug}/${thread.token}`);
-    expect(del.status).toBe(400);
-    expect(del.body.error).toBe("validation_error");
+    const del = await nonAdminAgent.delete(`/api/boards/b/${thread.subject_slug}/${thread.token}`);
+    expect(del.status).toBe(403);
+    expect(del.body.error).toBe("forbidden");
   });
 
-  it("rejects UUID deletion with wrong key", async () => {
-    const { thread } = await createThread("delete denied by id", "op");
+  it("forbids UUID deletion for non-admin", async () => {
+    const { thread } = await createThread("delete denied by id non-admin", "op");
+    const nonAdminAgent = await createApprovedNonAdminAgent();
 
-    const del = await agent.delete(
-      `/api/threads/${thread.id}?key=${encodeURIComponent("wrong-key")}`,
-    );
+    const del = await nonAdminAgent.delete(`/api/threads/${thread.id}`);
     expect(del.status).toBe(403);
-    expect(del.body.error).toBe("invalid_delete_key");
+    expect(del.body.error).toBe("forbidden");
   });
 });

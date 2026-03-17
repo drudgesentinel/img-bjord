@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { getAllGeneratedUsernameSingles } from "../src/lib/usernameGenerator.js";
-import { dbPing, dbReset, dbClose } from "./_db.js";
+import { createUser, dbPing, dbReset, dbClose } from "./_db.js";
 
 describe("auth", () => {
   const app = createApp();
@@ -21,7 +21,25 @@ describe("auth", () => {
     await dbClose();
   });
 
-  it("register returns generated username and creates authenticated session", async () => {
+  async function createAndLoginAdminAgent() {
+    await createUser({
+      username: "admin_0001",
+      password: "admin bootstrap pass",
+      isApproved: true,
+      isAdmin: true,
+    });
+
+    const adminAgent = request.agent(app);
+    const loginRes = await adminAgent
+      .post("/api/auth/login")
+      .set("content-type", "application/json")
+      .send({ username: "admin_0001", password: "admin bootstrap pass" });
+
+    expect(loginRes.status).toBe(200);
+    return adminAgent;
+  }
+
+  it("register returns generated username and requires admin approval", async () => {
     const agent = request.agent(app);
 
     const registerRes = await agent
@@ -29,12 +47,12 @@ describe("auth", () => {
       .set("content-type", "application/json")
       .send({ password: "correct horse battery staple", activationCode: "ALPHA123" });
 
-    expect(registerRes.status).toBe(201);
+    expect(registerRes.status).toBe(202);
+    expect(registerRes.body.pendingApproval).toBe(true);
     expect(registerRes.body.user.username).toMatch(/^[a-z0-9_]+$/);
 
     const me = await agent.get("/api/auth/me");
-    expect(me.status).toBe(200);
-    expect(me.body.user.username).toBe(registerRes.body.user.username);
+    expect(me.status).toBe(401);
   });
 
   it("blocks thread creation when unauthenticated", async () => {
@@ -48,12 +66,18 @@ describe("auth", () => {
   });
 
   it("supports login/logout with generated username and password", async () => {
+    const adminAgent = await createAndLoginAdminAgent();
     const registrationAgent = request.agent(app);
 
     const registerRes = await registrationAgent
       .post("/api/auth/register")
       .set("content-type", "application/json")
       .send({ password: "correct horse battery staple", activationCode: "ALPHA123" });
+
+    expect(registerRes.status).toBe(202);
+
+    const approveRes = await adminAgent.post(`/api/admin/users/${registerRes.body.user.id}/approve`);
+    expect(approveRes.status).toBe(204);
 
     const username = registerRes.body.user.username;
 
@@ -75,14 +99,7 @@ describe("auth", () => {
     expect(meAfterLogout.status).toBe(401);
   });
 
-  it("requires admin approval for non-first account login", async () => {
-    const adminAgent = request.agent(app);
-    const adminRegisterRes = await adminAgent
-      .post("/api/auth/register")
-      .set("content-type", "application/json")
-      .send({ password: "correct horse battery staple", activationCode: "ALPHA123" });
-    expect(adminRegisterRes.status).toBe(201);
-
+  it("requires admin approval for account login", async () => {
     const userAgent = request.agent(app);
     const pendingRes = await userAgent
       .post("/api/auth/register")
@@ -104,12 +121,18 @@ describe("auth", () => {
   });
 
   it("allows login with display username when unique", async () => {
+    const adminAgent = await createAndLoginAdminAgent();
     const registrationAgent = request.agent(app);
 
     const registerRes = await registrationAgent
       .post("/api/auth/register")
       .set("content-type", "application/json")
       .send({ password: "correct horse battery staple", activationCode: "ALPHA123" });
+
+    expect(registerRes.status).toBe(202);
+
+    const approveRes = await adminAgent.post(`/api/admin/users/${registerRes.body.user.id}/approve`);
+    expect(approveRes.status).toBe(204);
 
     const username = registerRes.body.user.username;
     const displayUsername = username.replace(/_\d+$/, "");
@@ -145,7 +168,7 @@ describe("auth", () => {
       .set("content-type", "application/json")
       .send({ password: "correct horse battery staple", activationCode: "ALPHA123", username: selected });
 
-    expect(registerRes.status).toBe(201);
+    expect(registerRes.status).toBe(202);
     expect(registerRes.body.user.username).toBe(selected);
   });
 
@@ -161,7 +184,7 @@ describe("auth", () => {
       .set("content-type", "application/json")
       .send({ password: "correct horse battery staple", activationCode: "ALPHA123", username: selected });
 
-    expect(registerRes.status).toBe(201);
+    expect(registerRes.status).toBe(202);
 
     const secondCandidates = await request(app).get("/api/auth/username-candidates");
     expect(secondCandidates.status).toBe(200);

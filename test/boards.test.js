@@ -2,7 +2,7 @@ import "dotenv/config";
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { dbPing, dbReset, dbClose } from "./_db.js";
+import { createUser, dbPing, dbReset, dbClose } from "./_db.js";
 
 describe("boards", () => {
   const app = createApp();
@@ -14,12 +14,19 @@ describe("boards", () => {
 
   beforeEach(async () => {
     await dbReset();
+    await createUser({
+      username: "admin_0001",
+      password: "correct horse battery staple",
+      isApproved: true,
+      isAdmin: true,
+    });
+
     agent = request.agent(app);
-    const registerRes = await agent
-      .post("/api/auth/register")
+    const loginRes = await agent
+      .post("/api/auth/login")
       .set("content-type", "application/json")
-      .send({ password: "correct horse battery staple" });
-    expect(registerRes.status).toBe(201);
+      .send({ username: "admin_0001", password: "correct horse battery staple" });
+    expect(loginRes.status).toBe(200);
   });
 
   afterAll(async () => {

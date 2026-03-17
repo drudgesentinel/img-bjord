@@ -2,7 +2,7 @@ import "dotenv/config";
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { dbPing, dbReset, dbClose } from "./_db.js";
+import { createUser, dbPing, dbReset, dbClose } from "./_db.js";
 
 describe("admin", () => {
   const app = createApp();
@@ -19,10 +19,28 @@ describe("admin", () => {
     await dbClose();
   });
 
+  async function createAndLoginAdminAgent() {
+    const admin = await createUser({
+      username: "admin_0001",
+      password: "admin bootstrap pass",
+      isApproved: true,
+      isAdmin: true,
+    });
+
+    const adminAgent = request.agent(app);
+    const loginRes = await adminAgent
+      .post("/api/auth/login")
+      .set("content-type", "application/json")
+      .send({ username: "admin_0001", password: "admin bootstrap pass" });
+    expect(loginRes.status).toBe(200);
+
+    return { adminAgent, admin };
+  }
+
   async function register(
     agent,
     password = "correct horse battery staple",
-    expectedStatus = 201,
+    expectedStatus = 202,
     activationCode = "hey it's mike please activate my account",
   ) {
     const res = await agent
@@ -35,8 +53,7 @@ describe("admin", () => {
   }
 
   it("admin can list users, set tags, and delete a non-admin user", async () => {
-    const adminAgent = request.agent(app);
-    const admin = await register(adminAgent);
+    const { adminAgent, admin } = await createAndLoginAdminAgent();
 
     const userAgent = request.agent(app);
     const user = await register(userAgent, "another pass phrase", 202, "hey it's sarah please approve me");
@@ -65,8 +82,7 @@ describe("admin", () => {
   });
 
   it("non-admin user is forbidden from admin endpoints", async () => {
-    const adminAgent = request.agent(app);
-    await register(adminAgent);
+    const { adminAgent } = await createAndLoginAdminAgent();
 
     const userAgent = request.agent(app);
     const pendingUser = await register(userAgent, "another pass phrase", 202, "hey it's sarah please approve me");
@@ -86,8 +102,7 @@ describe("admin", () => {
   });
 
   it("newly created non-first user is pending and can be approved", async () => {
-    const adminAgent = request.agent(app);
-    await register(adminAgent);
+    const { adminAgent } = await createAndLoginAdminAgent();
 
     const userAgent = request.agent(app);
     const pendingUser = await register(userAgent, "another pass phrase", 202, "hey it's sarah please approve me");
@@ -109,8 +124,7 @@ describe("admin", () => {
   });
 
   it("cannot delete the last remaining admin", async () => {
-    const adminAgent = request.agent(app);
-    const admin = await register(adminAgent);
+    const { adminAgent, admin } = await createAndLoginAdminAgent();
 
     const del = await adminAgent.delete(`/api/admin/users/${admin.id}`);
     expect(del.status).toBe(400);
@@ -118,8 +132,7 @@ describe("admin", () => {
   });
 
   it("admin can create and remove boards", async () => {
-    const adminAgent = request.agent(app);
-    await register(adminAgent);
+    const { adminAgent } = await createAndLoginAdminAgent();
 
     const boardSlug = `x${Date.now().toString().slice(-8)}`;
     const create = await adminAgent
@@ -139,8 +152,7 @@ describe("admin", () => {
   });
 
   it("cannot remove board when it has threads", async () => {
-    const adminAgent = request.agent(app);
-    await register(adminAgent);
+    const { adminAgent } = await createAndLoginAdminAgent();
 
     const boardSlug = `y${Date.now().toString().slice(-8)}`;
     const createBoardRes = await adminAgent

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -80,6 +81,33 @@ export async function ensureBoard(slug = "b", name = "Random") {
      on conflict (slug) do nothing`,
     [slug, name],
   );
+}
+
+export async function createUser({
+  username,
+  password,
+  isApproved = true,
+  isAdmin = false,
+  activationCode = null,
+  tags = [],
+}) {
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  const inserted = await pool.query(
+    `insert into users (username, password_hash, activation_code, is_approved, is_admin, tags)
+     values ($1, $2, $3, $4, $5, $6)
+     returning id, username, activation_code, is_approved, is_admin, tags, created_at`,
+    [username, passwordHash, activationCode, isApproved, isAdmin, tags],
+  );
+
+  await pool.query(
+    `insert into consumed_usernames (username)
+     values ($1)
+     on conflict (username) do nothing`,
+    [username],
+  );
+
+  return inserted.rows[0];
 }
 
 export async function dbReset() {

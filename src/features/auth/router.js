@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validateBody, validateQuery } from "../../middleware/validate.js";
 import { isDomainError } from "../../lib/domainErrors.js";
 import { reverseGeneratedUsernameOrder } from "../../lib/usernameGenerator.js";
+import { csrfTokenRoute } from "../../middleware/csrf.js";
 import {
   getRegistrationUsernameCandidates,
   getSessionUser,
@@ -34,6 +35,8 @@ const reverseUsernameQuerySchema = z
   })
   .strict();
 
+router.get("/csrf", csrfTokenRoute);
+
 router.get("/me", async (req, res, next) => {
   try {
     const userId = req.session?.userId;
@@ -57,11 +60,6 @@ router.post("/register", validateBody(registerSchema), async (req, res, next) =>
   try {
     const { password, username, activationCode } = req.validatedBody;
     const user = await registerUserWithGeneratedUsername({ password, username, activationCode });
-
-    if (user.is_approved) {
-      req.session.userId = user.id;
-      return res.status(201).json({ user });
-    }
 
     return res.status(202).json({
       user,
