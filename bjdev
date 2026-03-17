@@ -93,6 +93,24 @@ multi MAIN('db', $cmd) {
 }
 multi MAIN('admin', $cmd, $name?) {
     given $cmd {
+        #this is named stupidly, but manually creates the first admin user
+        when any <seed-admin seed> {
+            ensure-db-up();
+            my $username = $name // prompt "Admin username: ";
+            my $password = prompt "Admin password: ", :echo(0);
+            $username = $username.trim;
+            if !$username || !$password {
+                note "Username and password are required";
+                exit 1;
+            }
+
+            my $escaped-username = $username.subst("'", "''", :g);
+            my $escaped-password = $password.subst("'", "''", :g);
+
+            run-or-die <podman exec -i>, $CONTAINER,
+                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
+                "-c", "INSERT INTO users (username, password_hash, is_approved, is_admin) VALUES ('{$escaped-username}', crypt('{$escaped-password}', gen_salt('bf')), true, true);";
+        }
         when any <approve a> {
             ensure-db-up();
             my $target = $name // prompt "Username or user id to approve: ";
