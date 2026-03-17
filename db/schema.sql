@@ -149,5 +149,5 @@ create index if not exists threads_board_token_idx
 
 -- Seed default board
 insert into boards (slug, name)
-values ('b', 'Random')
+values ('general', 'General')
 on conflict (slug) do nothing;
