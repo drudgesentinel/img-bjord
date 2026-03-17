@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 
 const USERNAME_ADJECTIVES = [
+  "bleak",
+  "dread",
+  "dark",
   "wretched",
   "silent",
   "burning",
@@ -43,10 +46,23 @@ const USERNAME_ADJECTIVES = [
   "sacrificial",
   "the blind",
   "aspect of the",
+  "anor londo",
+  "harbinger",
+  "moon of the",
+  "son of the",
+  "keeper of the",
+  "demon",
+  "watcher of the",
+  "heartbreak",
+  "yung",
 ];
 
 const USERNAME_NOUNS = [
+  "jailer",
+  "tormentor",
   "enchilada",
+  "warhorse",
+  "warlord",
   "owl",
   "hammer",
   "ghost",
@@ -72,7 +88,7 @@ const USERNAME_NOUNS = [
   "demise",
   "seer",
   "wasteland",
-  "chemicals",
+  "chemical",
   "blasphemer",
   "swordsman",
   "hierophant",
@@ -83,6 +99,13 @@ const USERNAME_NOUNS = [
   "ghoul",
   "death machine",
   "sorrow",
+  "black knight",
+  "gunman",
+  "mothman",
+  "wanderer",
+  "darkness",
+  "ennui",
+  "knight",
 ];
 
 const THREAD_ADJECTIVES = [
@@ -162,10 +185,21 @@ function sanitizeSlugPart(value) {
     .slice(0, 40);
 }
 
+function canAppearSecondInReversedUsername(adjective) {
+  return !String(adjective ?? "").trim().toLowerCase().endsWith("of the");
+}
+
+function canAppearAsStandaloneUsername(adjective) {
+  return canAppearSecondInReversedUsername(adjective);
+}
+
 export function makeGeneratedUsername() {
   const adj = USERNAME_ADJECTIVES[crypto.randomInt(0, USERNAME_ADJECTIVES.length)];
   const noun = USERNAME_NOUNS[crypto.randomInt(0, USERNAME_NOUNS.length)];
-  const handle = `${sanitizeSlugPart(adj)}_${sanitizeSlugPart(noun)}`;
+  const useReversedOrder = canAppearSecondInReversedUsername(adj) && crypto.randomInt(0, 2) === 1;
+  const handle = useReversedOrder
+    ? `${sanitizeSlugPart(noun)}_${sanitizeSlugPart(adj)}`
+    : `${sanitizeSlugPart(adj)}_${sanitizeSlugPart(noun)}`;
   return handle || "anon_user";
 }
 
@@ -174,7 +208,7 @@ export function getAllGeneratedUsernameSingles() {
 
   for (const adj of USERNAME_ADJECTIVES) {
     const handle = sanitizeSlugPart(adj);
-    if (handle) all.push(handle);
+    if (canAppearAsStandaloneUsername(adj) && handle) all.push(handle);
   }
 
   for (const noun of USERNAME_NOUNS) {
@@ -190,12 +224,40 @@ export function getAllGeneratedUsernameCombos() {
 
   for (const adj of USERNAME_ADJECTIVES) {
     for (const noun of USERNAME_NOUNS) {
-      const handle = `${sanitizeSlugPart(adj)}_${sanitizeSlugPart(noun)}`;
-      if (handle) all.push(handle);
+      const adjectiveThenNoun = `${sanitizeSlugPart(adj)}_${sanitizeSlugPart(noun)}`;
+      const nounThenAdjective = `${sanitizeSlugPart(noun)}_${sanitizeSlugPart(adj)}`;
+      if (adjectiveThenNoun) all.push(adjectiveThenNoun);
+      if (canAppearSecondInReversedUsername(adj) && nounThenAdjective) all.push(nounThenAdjective);
     }
   }
 
   return [...new Set(all)];
+}
+
+export function reverseGeneratedUsernameOrder(username) {
+  const value = sanitizeSlugPart(username);
+  if (!value || !value.includes("_")) return null;
+
+  for (const adj of USERNAME_ADJECTIVES) {
+    const adjPart = sanitizeSlugPart(adj);
+    for (const noun of USERNAME_NOUNS) {
+      const nounPart = sanitizeSlugPart(noun);
+      const adjectiveThenNoun = `${adjPart}_${nounPart}`;
+      const nounThenAdjective = `${nounPart}_${adjPart}`;
+
+      if (value === adjectiveThenNoun) {
+        if (!canAppearSecondInReversedUsername(adj)) return null;
+        return nounThenAdjective;
+      }
+
+      if (value === nounThenAdjective) {
+        if (!canAppearSecondInReversedUsername(adj)) return null;
+        return adjectiveThenNoun;
+      }
+    }
+  }
+
+  return null;
 }
 
 export function getAllGeneratedUsernames() {
