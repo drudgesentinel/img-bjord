@@ -120,6 +120,12 @@
         : {
             method: 'POST',
             headers: {
+              'content-type': 'application/json'
+            },
+            body: JSON.stringify({ body })
+          };
+
+      await api<ReplyResponse>(fetch, `/api/threads/${data.threadId}/replies`, init);
 
       body = '';
       clearImage();
