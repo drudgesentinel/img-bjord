@@ -65,8 +65,11 @@ multi MAIN('db', $cmd) {
             ensure-db-up();
             wait-for-db();
 
-            say "applying schema";
-            run-or-die <./scripts/db-init.sh>;
+            say "applying schema to app database";
+            run-or-die <./scripts/db-init.sh>, "imageboard";
+
+            say "applying schema to test database";
+            run-or-die <./scripts/db-init.sh>, "imageboard_test";
         }
         # The :ok-exitcodes(0,125) bit is there because Podman commonly returns 125 when a container
         # doesn’t exist / can’t be operated on. This makes down/nuke “no-op safe”.

@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test": "vitest --sequence.concurrent false --fileParallelism false",
-    "test:watch": "vitest --watch --sequence.concurrent false --fileParallelism false"
+    "test": "NODE_ENV=test vitest --sequence.concurrent false --fileParallelism false",
+    "test:watch": "NODE_ENV=test vitest --watch --sequence.concurrent false --fileParallelism false"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

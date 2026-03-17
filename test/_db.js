@@ -1,9 +1,26 @@
 import "dotenv/config";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { pool } from "../src/db.js";
 
 let closed = false;
+let schemaReady = false;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const schemaPath = path.resolve(__dirname, "../db/schema.sql");
+
+async function ensureSchema() {
+  if (schemaReady) return;
+
+  const schemaSql = await readFile(schemaPath, "utf8");
+  await pool.query(schemaSql);
+  schemaReady = true;
+}
 
 export async function dbPing() {
+  await ensureSchema();
   await pool.query("select 1");
   await pool.query(`create table if not exists users (
     id uuid primary key default gen_random_uuid(),

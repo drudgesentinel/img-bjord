@@ -6,10 +6,10 @@
 set -euo pipefail
 
 CONTAINER_NAME="imageboard-pg"
-DB_NAME="imageboard"
+DB_NAME="${1:-imageboard}"
 DB_USER="postgres"
 
-echo "Applying schema inside container: $CONTAINER_NAME"
+echo "Ensuring database exists and applying schema: $DB_NAME (container: $CONTAINER_NAME)"
 
 # Ensure container exists
 podman ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$" || {
@@ -17,9 +17,17 @@ podman ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$" || {
   exit 1
 }
 
+if ! podman exec -i "$CONTAINER_NAME" \
+  psql -U "$DB_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" \
+  | grep -q 1; then
+  podman exec -i "$CONTAINER_NAME" \
+    psql -U "$DB_USER" -d postgres -v ON_ERROR_STOP=1 \
+    -c "CREATE DATABASE \"${DB_NAME}\";"
+fi
+
 podman exec -i "$CONTAINER_NAME" \
   psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
   < db/schema.sql
 
-echo "Schema applied successfully."
+echo "Schema applied successfully to $DB_NAME."
 
