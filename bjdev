@@ -93,6 +93,26 @@ multi MAIN('db', $cmd) {
 }
 multi MAIN('admin', $cmd, $name?) {
     given $cmd {
+        when any <approve a> {
+            ensure-db-up();
+            my $target = $name // prompt "Username or user id to approve: ";
+            $target = $target.trim;
+            if !$target {
+                note "Username or user id is required";
+                exit 1;
+            }
+
+            my $escaped-target = $target.subst("'", "''", :g);
+
+            run-or-die <podman exec -i>, $CONTAINER,
+                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
+                "-c", "UPDATE users SET is_approved = true WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';";
+
+            run-or-die <podman exec -i>, $CONTAINER,
+                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
+                "-c", "SELECT id, username, is_approved, activation_code FROM users WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';";
+        }
+
         when any <promote p> {
             ensure-db-up();
             my $target-username = $name // prompt "Username to promote: ";
