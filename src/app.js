@@ -2,7 +2,10 @@ import express from "express";
 import helmet from "helmet";
 import pino from "pino-http";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db.js";
 import { getUploadDir, isLocalMediaStorage } from "./lib/mediaStorage.js";
+import { requireCsrf } from "./middleware/csrf.js";
 
 import healthRouter from "./routes/health.js";
 import authRouter from "./features/auth/router.js";
@@ -14,6 +17,7 @@ import threadsRouter from "./features/threads/router.js";
 // moved the app logic here so it can be imported for tests
 export function createApp() {
   const app = express();
+  const PgSession = connectPgSimple(session);
 
   const DEBUG = process.env.DEBUG === "true";
 
@@ -40,12 +44,24 @@ export function createApp() {
   app.use(pino());
 
   const sessionSecret = process.env.SESSION_SECRET || "dev-only-insecure-session-secret";
+  const sessionTableName = process.env.SESSION_TABLE_NAME || "user_sessions";
+  const sessionPruneIntervalSeconds = Number(process.env.SESSION_PRUNE_INTERVAL_SECONDS ?? 24 * 60 * 60);
+  const useMemorySessionStore = process.env.SESSION_STORE === "memory";
+
   app.use(
     session({
       name: "bjord.sid",
       secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
+      store: useMemorySessionStore
+        ? undefined
+        : new PgSession({
+            pool,
+            tableName: sessionTableName,
+            createTableIfMissing: true,
+            pruneSessionInterval: sessionPruneIntervalSeconds,
+          }),
       cookie: {
         httpOnly: true,
         sameSite: "lax",
@@ -56,6 +72,7 @@ export function createApp() {
   );
 
   app.use(express.json({ limit: "64kb" }));
+  app.use(requireCsrf);
 
   if (isLocalMediaStorage()) {
     app.use("/api/uploads", express.static(getUploadDir()));

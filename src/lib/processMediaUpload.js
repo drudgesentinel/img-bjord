@@ -1,7 +1,8 @@
 import sharp from "sharp";
 import fs from "node:fs/promises";
+import path from "node:path";
 import { DomainError } from "./domainErrors.js";
-import { saveImageAvif, saveMediaFileFromPath } from "./mediaStorage.js";
+import { saveImageAvif, saveMediaFile, saveMediaFileFromPath } from "./mediaStorage.js";
 
 const MAX_MEDIA_UPLOAD_BYTES = Number(process.env.MAX_IMAGE_UPLOAD_BYTES ?? 100 * 1024 * 1024);
 const AVIF_QUALITY = Number(process.env.AVIF_QUALITY ?? 50);
@@ -13,6 +14,24 @@ const VIDEO_MIME_TO_EXTENSION = {
 };
 
 async function processImageMedia(file) {
+  const originalExtension = path.extname(file.originalname ?? "").toLowerCase();
+  const isGif = file.mimetype === "image/gif" || originalExtension === ".gif";
+
+  if (isGif) {
+    const gifBytes = await fs.readFile(file.path);
+    const stored = await saveMediaFile(gifBytes, "gif");
+
+    return {
+      mediaType: "image",
+      mediaUrl: stored.url,
+      mediaMimeType: "image/gif",
+      mediaSizeBytes: file.size ?? null,
+      mediaWidth: null,
+      mediaHeight: null,
+      mediaDurationSec: null,
+    };
+  }
+
   const { data, info } = await sharp(file.path)
     .rotate()
     .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
