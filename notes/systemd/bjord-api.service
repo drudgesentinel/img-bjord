@@ -18,7 +18,6 @@ TimeoutStopSec=30
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
 ReadWritePaths=/var/lib/bjord
 
 # Optional hardening knobs (enable after verifying runtime needs):
