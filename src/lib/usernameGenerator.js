@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 const USERNAME_ADJECTIVES = [
+  "skeleton",
   "bleak",
   "dread",
   "dark",
@@ -57,6 +58,8 @@ const USERNAME_ADJECTIVES = [
   "yung",
   "ancient of the",
   "knight of the",
+  "zombie",
+  "mystery meat",
 ];
 
 const USERNAME_NOUNS = [
@@ -115,6 +118,9 @@ const USERNAME_NOUNS = [
   "dreamer",
   "cult",
   "machine",
+  "bones",
+  "billionaire",
+  "oppressor",
 ];
 
 function sanitizeSlugPart(value) {
