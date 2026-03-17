@@ -1,0 +1,24 @@
+[Unit]
+Description=Bjord Frontend (SvelteKit adapter-node)
+After=network-online.target bjord-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bjord
+Group=bjord
+WorkingDirectory=/opt/img-bjord/frontend
+EnvironmentFile=/etc/bjord/bjord.env
+Environment=NODE_ENV=production
+Environment=PORT=3001
+ExecStart=/usr/bin/node /opt/img-bjord/frontend/build/index.js
+Restart=always
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
