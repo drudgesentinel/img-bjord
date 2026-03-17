@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { csrfFetch } from '$lib/csrf';
 
   type AdminUser = {
     id: string;
@@ -25,9 +26,16 @@
   let newBoardSlug = $state('');
   let newBoardName = $state('');
   let tagsDraft = $state<Record<string, string>>({});
+  let successModalOpen = $state(false);
+  let successMessage = $state('');
 
   for (const user of data.users) {
     tagsDraft[user.id] = user.tags.join(', ');
+  }
+
+  function showSuccessModal(message: string) {
+    successMessage = message;
+    successModalOpen = true;
   }
 
   async function removeUser(user: AdminUser) {
@@ -36,13 +44,14 @@
     busyUserId = user.id;
     error = '';
     try {
-      const res = await fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' });
+      const res = await csrfFetch(fetch, `/api/admin/users/${user.id}`, { method: 'DELETE' });
       if (!res.ok) {
         const details = await res.text();
         throw new Error(details || 'Failed to remove user');
       }
 
       await invalidateAll();
+      showSuccessModal(`User ${user.username} deleted.`);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to remove user';
     } finally {
@@ -60,7 +69,7 @@
         .map((t) => t.trim())
         .filter(Boolean);
 
-      const res = await fetch(`/api/admin/users/${user.id}/tags`, {
+      const res = await csrfFetch(fetch, `/api/admin/users/${user.id}/tags`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ tags })
@@ -72,6 +81,7 @@
       }
 
       await invalidateAll();
+      showSuccessModal(`Tags saved for ${user.username}.`);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to update tags';
     } finally {
@@ -84,7 +94,7 @@
     error = '';
 
     try {
-      const res = await fetch(`/api/admin/users/${user.id}/approve`, { method: 'POST' });
+      const res = await csrfFetch(fetch, `/api/admin/users/${user.id}/approve`, { method: 'POST' });
       if (!res.ok) {
         const details = await res.text();
         throw new Error(details || 'Failed to approve user');
@@ -111,7 +121,7 @@
     error = '';
 
     try {
-      const res = await fetch('/api/admin/boards', {
+      const res = await csrfFetch(fetch, '/api/admin/boards', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ slug, name })
@@ -125,6 +135,7 @@
       newBoardSlug = '';
       newBoardName = '';
       await invalidateAll();
+      showSuccessModal(`Board /${slug}/ created.`);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to create board';
     } finally {
@@ -139,13 +150,14 @@
     error = '';
 
     try {
-      const res = await fetch(`/api/admin/boards/${board.slug}`, { method: 'DELETE' });
+      const res = await csrfFetch(fetch, `/api/admin/boards/${board.slug}`, { method: 'DELETE' });
       if (!res.ok) {
         const details = await res.text();
         throw new Error(details || 'Failed to remove board');
       }
 
       await invalidateAll();
+      showSuccessModal(`Board /${board.slug}/ deleted.`);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to remove board';
     } finally {
@@ -158,6 +170,22 @@
 
 {#if error}
   <p>{error}</p>
+{/if}
+
+{#if successModalOpen}
+  <div class="modal-backdrop" role="presentation" on:click={() => (successModalOpen = false)}>
+    <div
+      class="success-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="admin-success-title"
+      on:click={(event) => event.stopPropagation()}
+    >
+      <h3 id="admin-success-title">Success</h3>
+      <p>{successMessage}</p>
+      <button type="button" on:click={() => (successModalOpen = false)}>OK</button>
+    </div>
+  </div>
 {/if}
 
 <section>
@@ -300,5 +328,32 @@
   .board-create-row input {
     width: auto;
     min-width: 12rem;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+  }
+
+  .success-modal {
+    background: #fff;
+    color: #111;
+    max-width: 24rem;
+    width: 100%;
+    border: 3px solid #1f4b99;
+    border-radius: 0.5rem;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    padding: 1rem;
+  }
+
+  .success-modal h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
   }
 </style>

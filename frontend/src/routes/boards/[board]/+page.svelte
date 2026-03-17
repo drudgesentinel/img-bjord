@@ -92,8 +92,8 @@
         `/api/boards/${payload.thread.board_slug}/${payload.thread.subject_slug}/${payload.thread.token}`;
 
       // backend returns /api/boards/:slug/:subjectSlug/:token
-      // frontend route should be /b/:slug/:subjectSlug/:token
-      const frontendPath = canonicalPath.replace('/api/boards/', '/b/');
+      // frontend route should be /boards/:slug/:subjectSlug/:token
+      const frontendPath = canonicalPath.replace('/api/boards/', '/boards/');
 
       clearMedia();
       await goto(frontendPath);
@@ -165,7 +165,7 @@
     <ul>
       {#each data.threads as thread}
         <li>
-          <a href={`/b/${thread.board_slug}/${thread.subject_slug}/${thread.token}`}>
+          <a href={`/boards/${thread.board_slug}/${thread.subject_slug}/${thread.token}`}>
             {thread.subject ?? '(untitled)'}
           </a>
           <div>

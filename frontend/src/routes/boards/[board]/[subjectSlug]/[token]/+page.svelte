@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
@@ -24,6 +25,7 @@
 
   const MAX_MEDIA_UPLOAD_BYTES = 100 * 1024 * 1024;
   const ALLOWED_MEDIA_TYPES = new Set(['video/mp4', 'video/webm']);
+  const currentUserIsAdmin = $derived(Boolean(page.data.user?.is_admin));
 
   function setMedia(file: File | null) {
     if (mediaPreviewUrl) {
@@ -95,8 +97,6 @@
   async function deleteThread() {
     opMenuOpen = false;
     if (!confirm('Delete this thread permanently?')) return;
-    const key = prompt('Enter deletion key');
-    if (!key?.trim()) return;
 
     deleting = true;
     error = '';
@@ -104,7 +104,7 @@
     try {
       const res = await csrfFetch(
         fetch,
-        `/api/boards/${data.board}/${data.thread.subject_slug}/${data.thread.token}?key=${encodeURIComponent(key.trim())}`,
+        `/api/boards/${data.board}/${data.thread.subject_slug}/${data.thread.token}`,
         { method: 'DELETE' }
       );
 
@@ -113,7 +113,7 @@
         throw new Error(details || 'Failed to delete thread');
       }
 
-      await goto(`/b/${data.board}`);
+      await goto(`/boards/${data.board}`);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to delete thread';
     } finally {
@@ -193,7 +193,7 @@
             <span class="admin-icon" aria-label="admin" title="admin">♠</span>
           {/if}
         </strong>
-        {#if post.post_number === 1}
+        {#if post.post_number === 1 && currentUserIsAdmin}
           <span class="op-menu">
             <button
               type="button"

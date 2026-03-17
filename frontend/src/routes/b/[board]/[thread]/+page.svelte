@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import { api } from '$lib/api';
+  import { csrfFetch } from '$lib/csrf';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
 
   let { data } = $props<{
@@ -79,7 +80,7 @@
     error = '';
 
     try {
-      const res = await fetch(`/api/threads/${data.threadId}?key=${encodeURIComponent(key.trim())}`, {
+      const res = await csrfFetch(fetch, `/api/threads/${data.threadId}?key=${encodeURIComponent(key.trim())}`, {
         method: 'DELETE'
       });
 

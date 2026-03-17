@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { siteConfig } from '$lib/siteConfig';
 
   let { children, data } = $props<{
     children: import('svelte').Snippet;
@@ -15,7 +16,7 @@
   }>();
 
   const segments = $derived(page.url.pathname.split('/').filter(Boolean));
-  const board = $derived(segments[0] === 'b' ? segments[1] : null);
+  const board = $derived(segments[0] === 'boards' ? segments[1] : null);
   const subjectSlug = $derived(segments[2] ?? null);
 
   function displayUsername(username: string) {
@@ -25,11 +26,11 @@
 
 <header>
   <nav class="breadcrumb">
-    <a href="/">img-bjord</a>
+    <a href="/">{siteConfig.siteName}</a>
 
     {#if board}
       <span> / </span>
-      <a href={`/b/${board}`}>{board}</a>
+      <a href={`/boards/${board}`}>{board}</a>
     {/if}
 
     {#if subjectSlug}
@@ -51,7 +52,7 @@
         <span class="user-pill">
         {displayUsername(data.user.username)}
         {#if data.user.is_admin}
-          <span class="admin-icon" aria-label="admin" title="admin">♠</span>
+          <a class="admin-icon" href="/admin" aria-label="admin" title="admin">♠</a>
         {/if}
         </span>
       </span>
@@ -99,6 +100,7 @@
 
   .admin-icon {
     margin-left: 0.35rem;
+    text-decoration: none;
   }
 
   .user-meta {
