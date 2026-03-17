@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
 import { validateBody, validateParams, validateQuery } from "../../middleware/validate.js";
-import { uploadOptionalImage } from "../../middleware/uploadImage.js";
+import { uploadOptionalMedia } from "../../middleware/uploadImage.js";
 import { requireAuth } from "../../middleware/requireAuth.js";
 import { isDomainError } from "../../lib/domainErrors.js";
-import { processImageUpload } from "../../lib/processImageUpload.js";
+import { processMediaUpload } from "../../lib/processMediaUpload.js";
 import {
   listBoards,
   createThread,
@@ -75,26 +75,26 @@ router.post(
   "/:slug/threads",
   requireAuth,
   validateParams(boardParamsSchema),
-  uploadOptionalImage("image"),
+  uploadOptionalMedia("image"),
   validateBody(createThreadSchema),
   async (req, res, next) => {
     try {
       const { slug: boardSlug } = req.validatedParams;
       const { subject, body } = req.validatedBody;
       const authorUserId = req.session.userId;
-      const image = await processImageUpload(req.file);
+      const media = await processMediaUpload(req.file);
 
-      if (!body && !image) {
+      if (!body && !media) {
         return res.status(400).json({
           error: "validation_error",
           details: {
-            formErrors: ["body or image is required"],
+            formErrors: ["body or media is required"],
             fieldErrors: {},
           },
         });
       }
 
-      const created = await createThread({ boardSlug, subject, body, image, authorUserId });
+      const created = await createThread({ boardSlug, subject, body, media, authorUserId });
       res.status(201).json(serializeCreateThreadResponse(created));
     } catch (err) {
       if (isDomainError(err, "validation_error")) {
@@ -163,26 +163,26 @@ router.post(
   "/:slug/:subjectSlug/:token/replies",
   requireAuth,
   validateParams(threadPrettyParamsSchema),
-  uploadOptionalImage("image"),
+  uploadOptionalMedia("image"),
   validateBody(replySchema),
   async (req, res, next) => {
     try {
       const { slug: boardSlug, subjectSlug, token } = req.validatedParams;
       const { body } = req.validatedBody;
       const authorUserId = req.session.userId;
-      const image = await processImageUpload(req.file);
+      const media = await processMediaUpload(req.file);
 
-      if (!body && !image) {
+      if (!body && !media) {
         return res.status(400).json({
           error: "validation_error",
           details: {
-            formErrors: ["body or image is required"],
+            formErrors: ["body or media is required"],
             fieldErrors: {},
           },
         });
       }
 
-      const created = await createReplyByPretty({ boardSlug, subjectSlug, token, body, image, authorUserId });
+      const created = await createReplyByPretty({ boardSlug, subjectSlug, token, body, media, authorUserId });
       res.status(201).json(serializeReplyResponse(created));
     } catch (err) {
       if (isDomainError(err, "validation_error")) {

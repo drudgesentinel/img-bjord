@@ -65,12 +65,27 @@ create table if not exists posts (
   post_number integer not null,
   created_at timestamptz not null default now(),
   body text not null,
+  media_type text,
+  media_url text,
+  media_mime_type text,
+  media_size_bytes integer,
+  media_width integer,
+  media_height integer,
+  media_duration_sec numeric,
   image_url text,
   image_mime_type text,
   image_size_bytes integer,
   image_width integer,
   image_height integer
 );
+
+alter table posts add column if not exists media_type text;
+alter table posts add column if not exists media_url text;
+alter table posts add column if not exists media_mime_type text;
+alter table posts add column if not exists media_size_bytes integer;
+alter table posts add column if not exists media_width integer;
+alter table posts add column if not exists media_height integer;
+alter table posts add column if not exists media_duration_sec numeric;
 
 alter table posts add column if not exists image_url text;
 alter table posts add column if not exists image_mime_type text;

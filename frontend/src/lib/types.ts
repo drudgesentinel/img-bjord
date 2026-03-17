@@ -18,6 +18,13 @@ export type Post = {
   post_number: number;
   created_at: string;
   body: string;
+  media_type?: 'image' | 'video' | null;
+  media_url?: string | null;
+  media_mime_type?: string | null;
+  media_size_bytes?: number | null;
+  media_width?: number | null;
+  media_height?: number | null;
+  media_duration_sec?: number | null;
   image_url?: string | null;
   image_mime_type?: string | null;
   image_size_bytes?: number | null;

@@ -30,14 +30,24 @@ async function saveImageAvifToS3(_buffer) {
   );
 }
 
-export async function saveImageAvif(buffer) {
+function sanitizeExtension(extension) {
+  const ext = String(extension ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return ext || "bin";
+}
+
+async function saveMediaToS3(_buffer, _extension) {
+  return saveImageAvifToS3(_buffer);
+}
+
+export async function saveMediaFile(buffer, extension) {
   if (mediaStorageDriver === "s3") {
-    return saveImageAvifToS3(buffer);
+    return saveMediaToS3(buffer, extension);
   }
 
   await fs.mkdir(uploadDir, { recursive: true });
 
-  const filename = `${crypto.randomUUID()}.avif`;
+  const safeExtension = sanitizeExtension(extension);
+  const filename = `${crypto.randomUUID()}.${safeExtension}`;
   const absolutePath = path.join(uploadDir, filename);
 
   await fs.writeFile(absolutePath, buffer);
@@ -46,6 +56,10 @@ export async function saveImageAvif(buffer) {
     key: filename,
     url: `${publicPrefix}/${filename}`,
   };
+}
+
+export async function saveImageAvif(buffer) {
+  return saveMediaFile(buffer, "avif");
 }
 
 export function getUploadDir() {

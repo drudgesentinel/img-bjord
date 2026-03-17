@@ -14,61 +14,63 @@
   let body = $state('');
   let creating = $state(false);
   let error = $state('');
-  let imageFile = $state<File | null>(null);
-  let imagePreviewUrl = $state('');
+  let mediaFile = $state<File | null>(null);
+  let mediaPreviewUrl = $state('');
+  let mediaPreviewIsVideo = $state(false);
 
-  function setImage(file: File | null) {
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
-      imagePreviewUrl = '';
+  function setMedia(file: File | null) {
+    if (mediaPreviewUrl) {
+      URL.revokeObjectURL(mediaPreviewUrl);
+      mediaPreviewUrl = '';
     }
 
-    imageFile = file;
+    mediaFile = file;
+    mediaPreviewIsVideo = Boolean(file?.type?.startsWith('video/'));
     if (file) {
-      imagePreviewUrl = URL.createObjectURL(file);
+      mediaPreviewUrl = URL.createObjectURL(file);
     }
   }
 
-  function handleImageChange(event: Event) {
+  function handleMediaChange(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0] ?? null;
-    setImage(file);
+    setMedia(file);
   }
 
   function handleBodyPaste(event: ClipboardEvent) {
     if (!event.clipboardData) return;
 
-    const imageItem = [...event.clipboardData.items].find((item) => item.type.startsWith('image/'));
-    if (!imageItem) return;
+    const mediaItem = [...event.clipboardData.items].find((item) => item.type.startsWith('image/'));
+    if (!mediaItem) return;
 
-    const file = imageItem.getAsFile();
+    const file = mediaItem.getAsFile();
     if (!file) return;
 
     event.preventDefault();
-    setImage(file);
+    setMedia(file);
   }
 
-  function clearImage() {
-    setImage(null);
+  function clearMedia() {
+    setMedia(null);
   }
 
   async function createThread() {
     error = '';
-    if (!body.trim() && !imageFile) {
-      error = 'Body or image is required';
+    if (!body.trim() && !mediaFile) {
+      error = 'Body or media is required';
       return;
     }
     creating = true;
 
     try {
-      const init: RequestInit = imageFile
+      const init: RequestInit = mediaFile
         ? {
             method: 'POST',
             body: (() => {
               const form = new FormData();
               if (subject.trim()) form.append('subject', subject.trim());
               form.append('body', body);
-              form.append('image', imageFile);
+              form.append('image', mediaFile);
               return form;
             })()
           }
@@ -93,7 +95,7 @@
       // frontend route should be /b/:slug/:subjectSlug/:token
       const frontendPath = canonicalPath.replace('/api/boards/', '/b/');
 
-      clearImage();
+      clearMedia();
       await goto(frontendPath);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to create thread';
@@ -124,17 +126,21 @@
 
   <div>
     <label>
-      Image
-      <input type="file" accept="image/*" on:change={handleImageChange} />
+      Media
+      <input type="file" accept="image/*,video/mp4,video/webm" on:change={handleMediaChange} />
     </label>
     <p><small>Tip: you can also paste an image into the body field.</small></p>
   </div>
 
-  {#if imagePreviewUrl}
+  {#if mediaPreviewUrl}
     <div>
-      <img src={imagePreviewUrl} alt="Selected image preview" style="max-width: 320px; max-height: 320px;" />
+      {#if mediaPreviewIsVideo}
+        <video src={mediaPreviewUrl} controls preload="metadata" style="max-width: 320px; max-height: 320px;"></video>
+      {:else}
+        <img src={mediaPreviewUrl} alt="Selected media preview" style="max-width: 320px; max-height: 320px;" />
+      {/if}
       <div>
-        <button type="button" on:click={clearImage} disabled={creating}>Remove image</button>
+        <button type="button" on:click={clearMedia} disabled={creating}>Remove media</button>
       </div>
     </div>
   {/if}

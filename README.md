@@ -16,6 +16,8 @@ Image/media envs:
 - UPLOAD_DIR=data/uploads (local)
 - UPLOAD_PUBLIC_PREFIX=/api/uploads (local)
 
+Supported uploads: images (converted to AVIF), `video/mp4`, and `video/webm`.
+
 S3 scaffold envs (for future wiring):
 - S3_ENDPOINT
 - S3_BUCKET

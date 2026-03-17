@@ -47,6 +47,13 @@ export async function dbPing() {
   await pool.query("alter table posts add column if not exists image_size_bytes integer");
   await pool.query("alter table posts add column if not exists image_width integer");
   await pool.query("alter table posts add column if not exists image_height integer");
+  await pool.query("alter table posts add column if not exists media_type text");
+  await pool.query("alter table posts add column if not exists media_url text");
+  await pool.query("alter table posts add column if not exists media_mime_type text");
+  await pool.query("alter table posts add column if not exists media_size_bytes integer");
+  await pool.query("alter table posts add column if not exists media_width integer");
+  await pool.query("alter table posts add column if not exists media_height integer");
+  await pool.query("alter table posts add column if not exists media_duration_sec numeric");
   await pool.query("alter table posts add column if not exists author_user_id uuid");
   await pool.query(`do $$
 begin

@@ -14,7 +14,7 @@ export async function listBoards() {
   return repo.listBoards(pool);
 }
 
-export async function createThread({ boardSlug, subject, body, image = null, authorUserId }) {
+export async function createThread({ boardSlug, subject, body, media = null, authorUserId }) {
   const subjectOrNull = subject ?? null;
   const subjectSlug = slugifySubject(subjectOrNull ?? "");
   const deleteKey = generateDeleteKey();
@@ -59,11 +59,13 @@ export async function createThread({ boardSlug, subject, body, image = null, aut
       authorUserId,
       postNumber: row.next_post_number,
       body,
-      imageUrl: image?.imageUrl ?? null,
-      imageMimeType: image?.imageMimeType ?? null,
-      imageSizeBytes: image?.imageSizeBytes ?? null,
-      imageWidth: image?.imageWidth ?? null,
-      imageHeight: image?.imageHeight ?? null,
+      mediaType: media?.mediaType ?? null,
+      mediaUrl: media?.mediaUrl ?? null,
+      mediaMimeType: media?.mediaMimeType ?? null,
+      mediaSizeBytes: media?.mediaSizeBytes ?? null,
+      mediaWidth: media?.mediaWidth ?? null,
+      mediaHeight: media?.mediaHeight ?? null,
+      mediaDurationSec: media?.mediaDurationSec ?? null,
     });
 
     await repo.incrementNextPostNumber(client, thread.id);
@@ -97,7 +99,7 @@ export async function getThreadDetailByPretty({ boardSlug, subjectSlug, token })
   return { thread, posts };
 }
 
-export async function createReplyByPretty({ boardSlug, subjectSlug, token, body, image = null, authorUserId }) {
+export async function createReplyByPretty({ boardSlug, subjectSlug, token, body, media = null, authorUserId }) {
   return withTransaction(pool, async (client) => {
     const thread = await repo.findThreadForUpdateByPretty(client, {
       boardSlug,
@@ -114,11 +116,13 @@ export async function createReplyByPretty({ boardSlug, subjectSlug, token, body,
       authorUserId,
       postNumber: thread.next_post_number,
       body,
-      imageUrl: image?.imageUrl ?? null,
-      imageMimeType: image?.imageMimeType ?? null,
-      imageSizeBytes: image?.imageSizeBytes ?? null,
-      imageWidth: image?.imageWidth ?? null,
-      imageHeight: image?.imageHeight ?? null,
+      mediaType: media?.mediaType ?? null,
+      mediaUrl: media?.mediaUrl ?? null,
+      mediaMimeType: media?.mediaMimeType ?? null,
+      mediaSizeBytes: media?.mediaSizeBytes ?? null,
+      mediaWidth: media?.mediaWidth ?? null,
+      mediaHeight: media?.mediaHeight ?? null,
+      mediaDurationSec: media?.mediaDurationSec ?? null,
     });
 
     await repo.bumpAndIncrementNextPostNumber(client, thread.id);

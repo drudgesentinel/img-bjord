@@ -17,42 +17,44 @@
   let opMenuOpen = $state(false);
   let error = $state('');
   let expandedImageUrl = $state<string | null>(null);
-  let imageFile = $state<File | null>(null);
-  let imagePreviewUrl = $state('');
+  let mediaFile = $state<File | null>(null);
+  let mediaPreviewUrl = $state('');
+  let mediaPreviewIsVideo = $state(false);
 
-  function setImage(file: File | null) {
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
-      imagePreviewUrl = '';
+  function setMedia(file: File | null) {
+    if (mediaPreviewUrl) {
+      URL.revokeObjectURL(mediaPreviewUrl);
+      mediaPreviewUrl = '';
     }
 
-    imageFile = file;
+    mediaFile = file;
+    mediaPreviewIsVideo = Boolean(file?.type?.startsWith('video/'));
     if (file) {
-      imagePreviewUrl = URL.createObjectURL(file);
+      mediaPreviewUrl = URL.createObjectURL(file);
     }
   }
 
-  function handleImageChange(event: Event) {
+  function handleMediaChange(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0] ?? null;
-    setImage(file);
+    setMedia(file);
   }
 
   function handleBodyPaste(event: ClipboardEvent) {
     if (!event.clipboardData) return;
 
-    const imageItem = [...event.clipboardData.items].find((item) => item.type.startsWith('image/'));
-    if (!imageItem) return;
+    const mediaItem = [...event.clipboardData.items].find((item) => item.type.startsWith('image/'));
+    if (!mediaItem) return;
 
-    const file = imageItem.getAsFile();
+    const file = mediaItem.getAsFile();
     if (!file) return;
 
     event.preventDefault();
-    setImage(file);
+    setMedia(file);
   }
 
-  function clearImage() {
-    setImage(null);
+  function clearMedia() {
+    setMedia(null);
   }
 
   function openImage(url: string) {
@@ -98,20 +100,20 @@
 
   async function submitReply() {
     error = '';
-    if (!body.trim() && !imageFile) {
-      error = 'Body or image is required';
+    if (!body.trim() && !mediaFile) {
+      error = 'Body or media is required';
       return;
     }
     replying = true;
 
     try {
-      const init: RequestInit = imageFile
+      const init: RequestInit = mediaFile
         ? {
             method: 'POST',
             body: (() => {
               const form = new FormData();
               form.append('body', body);
-              form.append('image', imageFile);
+              form.append('image', mediaFile);
               return form;
             })()
           }
@@ -130,7 +132,7 @@
       );
 
       body = '';
-      clearImage();
+      clearMedia();
       await invalidateAll();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to post reply';
@@ -194,16 +196,27 @@
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
       <pre>{post.body}</pre>
-      {#if post.image_url}
+      {#if post.media_url && post.media_type === 'video'}
         <figure class="post-image">
-          <button type="button" class="image-button" on:click={() => openImage(post.image_url!)}>
+          <video
+            src={post.media_url}
+            controls
+            preload="metadata"
+            width={post.media_width ?? undefined}
+            height={post.media_height ?? undefined}
+          ></video>
+        </figure>
+      {:else if post.image_url || (post.media_url && post.media_type === 'image')}
+        {@const imageUrl = post.media_url ?? post.image_url}
+        <figure class="post-image">
+          <button type="button" class="image-button" on:click={() => openImage(imageUrl!)}>
             <img
-              src={post.image_url}
+              src={imageUrl}
               alt="Post image"
               loading="lazy"
               decoding="async"
-              width={post.image_width ?? undefined}
-              height={post.image_height ?? undefined}
+              width={post.media_width ?? post.image_width ?? undefined}
+              height={post.media_height ?? post.image_height ?? undefined}
             />
           </button>
         </figure>
@@ -229,17 +242,21 @@
 
   <div>
     <label>
-      Image
-      <input type="file" accept="image/*" on:change={handleImageChange} />
+      Media
+      <input type="file" accept="image/*,video/mp4,video/webm" on:change={handleMediaChange} />
     </label>
     <p><small>Tip: you can also paste an image into the body field.</small></p>
   </div>
 
-  {#if imagePreviewUrl}
+  {#if mediaPreviewUrl}
     <div>
-      <img src={imagePreviewUrl} alt="Selected image preview" style="max-width: 320px; max-height: 320px;" />
+      {#if mediaPreviewIsVideo}
+        <video src={mediaPreviewUrl} controls preload="metadata" style="max-width: 320px; max-height: 320px;"></video>
+      {:else}
+        <img src={mediaPreviewUrl} alt="Selected media preview" style="max-width: 320px; max-height: 320px;" />
+      {/if}
       <div>
-        <button type="button" on:click={clearImage} disabled={replying}>Remove image</button>
+        <button type="button" on:click={clearMedia} disabled={replying}>Remove media</button>
       </div>
     </div>
   {/if}
@@ -275,6 +292,15 @@
     border-radius: 8px;
     background: #111;
     cursor: zoom-in;
+  }
+
+  .post-image video {
+    display: block;
+    width: auto;
+    max-width: min(100%, 560px);
+    height: auto;
+    border-radius: 8px;
+    background: #111;
   }
 
   .image-button {
