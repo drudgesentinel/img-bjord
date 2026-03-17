@@ -184,10 +184,9 @@
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
       <pre class="post-body">{post.body}</pre>
-      {@const embeds = getEmbeddableLinks(post.body)}
-      {#if embeds.length > 0}
+      {#if getEmbeddableLinks(post.body).length > 0}
         <div class="post-embeds">
-          {#each embeds as embed}
+          {#each getEmbeddableLinks(post.body) as embed}
             {#if embed.kind === 'directVideo'}
               <video src={embed.embedUrl} controls preload="metadata"></video>
             {:else}
