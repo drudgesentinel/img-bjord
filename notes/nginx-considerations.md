@@ -67,3 +67,56 @@ Upload note:
 - If image/video posting fails with a browser `NetworkError`, nginx may be rejecting request size before it reaches the app.
 - Set `client_max_body_size` to at least your app limit.
 - App-side upload limit is controlled by `MAX_IMAGE_UPLOAD_BYTES` (default 100MB).
+
+## Full template for `krepost.net` (certbot already provisioned)
+
+Use this as a production-ready baseline if your API runs on `127.0.0.1:3000` and frontend on `127.0.0.1:3001`.
+
+Important: keep `proxy_pass http://127.0.0.1:3000;` (no trailing `/`) for `/api/` so nginx does not strip the `/api` path prefix.
+
+```nginx
+server {
+	listen 80;
+	listen [::]:80;
+	server_name krepost.net www.krepost.net;
+
+	return 301 https://$host$request_uri;
+}
+
+server {
+	listen 443 ssl http2;
+	listen [::]:443 ssl http2;
+	server_name krepost.net www.krepost.net;
+
+	# certbot paths
+	ssl_certificate /etc/letsencrypt/live/krepost.net/fullchain.pem;
+	ssl_certificate_key /etc/letsencrypt/live/krepost.net/privkey.pem;
+	include /etc/letsencrypt/options-ssl-nginx.conf;
+	ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+	# upload/timeouts for media
+	client_max_body_size 100m;
+	proxy_read_timeout 300s;
+	proxy_send_timeout 300s;
+
+	# API -> Express
+	location /api/ {
+		proxy_pass http://127.0.0.1:3000;
+		proxy_http_version 1.1;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+	}
+
+	# Frontend -> SvelteKit node server
+	location / {
+		proxy_pass http://127.0.0.1:3001/;
+		proxy_http_version 1.1;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+	}
+}
+```

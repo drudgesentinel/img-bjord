@@ -15,11 +15,24 @@ firewall-cmd --permanent --zone=public \
 
 firewall-cmd --reload
 
+#make a directory to store the application, traditionally /opt and a directory to store env config in /etc
+mkdir /opt/img-bjord
+mkdir /etc/bjord
+
 #add non root user for img-bjord
 
 useradd krepost
-su krepost
 
+
+# grant the user permissions to your deployment directory as root
+sudo chown -R krepost:krepost /opt/img-bjord
+
+
+# init the DB via:
+sudo APP_DB_PASS='YOUR_PASSWORD' bash notes/deployment-scripts/bootstrap-postgres.sh
+
+# switch to the app user
+su krepost
 
 # install nvm for node version management
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
@@ -27,6 +40,18 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
 source ~/.bashrc
 nvm install --lts && nvm use --lts
 
+#clone the repo
+git clone ssh://git@codeberg.org/drudgesentinel/img-bjord.git
+
+# install dependencies in the project root and the 'frontend' folder with
+npm install
+cd frontend && npm install && npm run build
+
+
+# next, add the bjord-api.service and bjord-frontend.service files at /etc/systemd/system/bjord-api.service and 
+# /etc/systemd/system/bjord-frontend.service, respectively
+# you will need to update the system user name/group to the user you created- make sure the ExecStart actually points to the path you installed node at.
+# for nvm, this might be /home/krepost/.nvm/versions/node/v24.14.0/bin/node or soemthing
 ```
 
 # bjord deployment checklist (VPS)

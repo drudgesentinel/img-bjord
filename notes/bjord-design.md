@@ -12,3 +12,4 @@ Component 3: The Frontend
 Component 4: Object Storage
 The plan is to have an S3 compatible storage system
 
+The frontend and backend are separated into separate services as they can venerate logs/restart independently, and should theoretically allow me to isolate failures more easily.
