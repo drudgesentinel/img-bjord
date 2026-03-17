@@ -19,8 +19,10 @@
 
   let registerPassword = $state('');
   let usernameOptions = $state<string[]>([]);
+  let reversibleUsernameOptions = $state<string[]>([]);
   let selectedRegisterUsername = $state('');
   let candidateBusy = $state(false);
+  let reverseBusyFor = $state<string | null>(null);
   let loginUsername = $state('');
   let loginPassword = $state('');
   let authBusy = $state(false);
@@ -37,8 +39,9 @@
         throw new Error(details || 'Failed to get username options');
       }
 
-      const body = (await res.json()) as { usernames: string[] };
+      const body = (await res.json()) as { usernames: string[]; reversibleUsernames?: string[] };
       usernameOptions = body.usernames;
+      reversibleUsernameOptions = body.reversibleUsernames ?? [];
       if (body.usernames.length > 0) {
         selectedRegisterUsername = body.usernames[0];
       }
@@ -52,6 +55,46 @@
   onMount(async () => {
     await loadUsernameOptions();
   });
+
+  function isReversibleOption(option: string) {
+    return reversibleUsernameOptions.includes(option);
+  }
+
+  async function reverseUsernameOption(option: string) {
+    if (!isReversibleOption(option)) return;
+
+    reverseBusyFor = option;
+    authError = '';
+
+    try {
+      const res = await fetch(`/api/auth/username-reverse?username=${encodeURIComponent(option)}`);
+      if (!res.ok) {
+        const details = await res.text();
+        throw new Error(details || 'Failed to reverse username');
+      }
+
+      const body = (await res.json()) as { username: string | null };
+      const reversed = body.username;
+      if (!reversed || reversed === option) return;
+
+      if (usernameOptions.includes(reversed)) {
+        if (selectedRegisterUsername === option) {
+          selectedRegisterUsername = reversed;
+        }
+        return;
+      }
+
+      usernameOptions = usernameOptions.map((name) => (name === option ? reversed : name));
+      reversibleUsernameOptions = reversibleUsernameOptions.map((name) => (name === option ? reversed : name));
+      if (selectedRegisterUsername === option) {
+        selectedRegisterUsername = reversed;
+      }
+    } catch (e) {
+      authError = e instanceof Error ? e.message : 'Failed to reverse username';
+    } finally {
+      reverseBusyFor = null;
+    }
+  }
 
   async function register() {
     authBusy = true;
@@ -162,19 +205,52 @@
         <fieldset>
           <legend>Choose a username</legend>
           {#each usernameOptions as option}
-            <label>
-              <input
-                type="radio"
-                name="register-username"
-                value={option}
-                checked={selectedRegisterUsername === option}
-                on:change={() => (selectedRegisterUsername = option)}
-                disabled={authBusy || candidateBusy}
-              />
-              {option}
+            <label class="username-option">
+              <span>
+                <input
+                  type="radio"
+                  name="register-username"
+                  value={option}
+                  checked={selectedRegisterUsername === option}
+                  on:change={() => (selectedRegisterUsername = option)}
+                  disabled={authBusy || candidateBusy || reverseBusyFor === option}
+                />
+                {option}
+              </span>
+              <button
+                type="button"
+                class="reverse-button"
+                on:click={() => reverseUsernameOption(option)}
+                disabled={
+                  authBusy ||
+                  candidateBusy ||
+                  reverseBusyFor !== null ||
+                  !isReversibleOption(option)
+                }
+              >
+                {reverseBusyFor === option ? 'Reversing...' : 'Reverse'}
+              </button>
             </label>
           {/each}
         </fieldset>
+
+        <button
+          type="button"
+          on:click={loadUsernameOptions}
+          disabled={authBusy || candidateBusy}
+        >
+          {candidateBusy ? 'Loading...' : 'Regenerate usernames'}
+        </button>
+      {/if}
+
+      {#if usernameOptions.length === 0}
+        <button
+          type="button"
+          on:click={loadUsernameOptions}
+          disabled={authBusy || candidateBusy}
+        >
+          {candidateBusy ? 'Loading...' : 'Load username suggestions'}
+        </button>
       {/if}
 
       <label>
@@ -236,3 +312,17 @@
     {/each}
   </ul>
 {/if}
+
+<style>
+  .username-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .reverse-button {
+    font-size: 0.8rem;
+  }
+</style>

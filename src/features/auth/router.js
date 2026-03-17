@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { z } from "zod";
-import { validateBody } from "../../middleware/validate.js";
+import { validateBody, validateQuery } from "../../middleware/validate.js";
 import { isDomainError } from "../../lib/domainErrors.js";
+import { reverseGeneratedUsernameOrder } from "../../lib/usernameGenerator.js";
 import {
   getRegistrationUsernameCandidates,
   getSessionUser,
   loginUser,
   registerUserWithGeneratedUsername,
+  reverseRegistrationUsernameCandidate,
 } from "./service.js";
 
 const router = Router();
@@ -22,6 +24,12 @@ const loginSchema = z
   .object({
     username: z.string().trim().min(1).max(64),
     password: z.string().min(1).max(200),
+  })
+  .strict();
+
+const reverseUsernameQuerySchema = z
+  .object({
+    username: z.string().trim().min(3).max(64).regex(/^[a-z0-9_]+$/),
   })
   .strict();
 
@@ -80,12 +88,33 @@ router.post("/register", validateBody(registerSchema), async (req, res, next) =>
 router.get("/username-candidates", async (req, res, next) => {
   try {
     const usernames = await getRegistrationUsernameCandidates(10);
-    res.json({ usernames });
+    const reversibleUsernames = usernames.filter((username) => Boolean(reverseGeneratedUsernameOrder(username)));
+    res.json({ usernames, reversibleUsernames });
   } catch (err) {
     if (isDomainError(err, "username_generation_failed")) {
       return res.status(500).json({
         error: "username_generation_failed",
         message: err.message,
+      });
+    }
+
+    next(err);
+  }
+});
+
+router.get("/username-reverse", validateQuery(reverseUsernameQuerySchema), async (req, res, next) => {
+  try {
+    const { username } = req.validatedQuery;
+    const reversedUsername = await reverseRegistrationUsernameCandidate(username);
+    res.json({ username: reversedUsername });
+  } catch (err) {
+    if (isDomainError(err, "validation_error")) {
+      return res.status(400).json({
+        error: "validation_error",
+        details: {
+          formErrors: [err.message],
+          fieldErrors: {},
+        },
       });
     }
 

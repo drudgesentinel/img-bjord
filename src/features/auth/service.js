@@ -5,8 +5,9 @@ import {
   getAllGeneratedUsernameCombos,
   getAllGeneratedUsernameSingles,
   getAllGeneratedUsernames,
-  isUniqueViolation,
-} from "../../lib/threadSlug.js";
+  reverseGeneratedUsernameOrder,
+} from "../../lib/usernameGenerator.js";
+import { isUniqueViolation } from "../../lib/threadSlug.js";
 import { withTransaction } from "../../lib/withTransaction.js";
 import * as repo from "./repository.js";
 
@@ -109,6 +110,22 @@ export async function getRegistrationUsernameCandidates(count = 5, db = pool) {
   }
 
   return selected;
+}
+
+export async function reverseRegistrationUsernameCandidate(username, db = pool) {
+  const normalized = normalizeUsername(username);
+  if (!normalized) {
+    throw new DomainError("validation_error", "username is required");
+  }
+
+  const reversed = reverseGeneratedUsernameOrder(normalized);
+  if (!reversed) return null;
+
+  const unavailable = new Set(await repo.listUnavailableUsernames(db));
+  if (unavailable.has(reversed)) return null;
+
+  if (!ALL_GENERATED_USERNAMES.includes(reversed)) return null;
+  return reversed;
 }
 
 export async function loginUser({ username, password }) {

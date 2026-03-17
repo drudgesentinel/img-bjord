@@ -2,7 +2,7 @@ import "dotenv/config";
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { getAllGeneratedUsernameSingles } from "../src/lib/threadSlug.js";
+import { getAllGeneratedUsernameSingles } from "../src/lib/usernameGenerator.js";
 import { dbPing, dbReset, dbClose } from "./_db.js";
 
 describe("auth", () => {
