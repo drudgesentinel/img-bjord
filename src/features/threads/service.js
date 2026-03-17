@@ -3,9 +3,30 @@ import { DomainError } from "../../lib/domainErrors.js";
 import { withTransaction } from "../../lib/withTransaction.js";
 import * as repo from "./repository.js";
 
-export async function getThreadDetailById(threadId) {
+function canViewerAccessBoardTags(boardTags, viewer) {
+  const tags = Array.isArray(boardTags) ? boardTags : [];
+  if (viewer?.is_admin) return true;
+  if (tags.length === 0) return true;
+
+  const viewerTags = new Set(Array.isArray(viewer?.tags) ? viewer.tags : []);
+  return tags.some((tag) => viewerTags.has(tag));
+}
+
+async function getViewerById(userId, db = pool) {
+  if (!userId) return null;
+  const viewer = await repo.findViewerById(db, userId);
+  if (!viewer) throw new DomainError("not_found");
+  return viewer;
+}
+
+export async function getThreadDetailById(threadId, viewerUserId = null) {
   const thread = await repo.findThreadById(pool, threadId);
-  if (!thread) {
+  const viewer = await getViewerById(viewerUserId).catch((err) => {
+    if (err instanceof DomainError && err.code === "not_found") return null;
+    throw err;
+  });
+
+  if (!thread || !canViewerAccessBoardTags(thread.visible_to_tags, viewer)) {
     throw new DomainError("not_found");
   }
 
@@ -15,8 +36,12 @@ export async function getThreadDetailById(threadId) {
 
 export async function createReplyByThreadId({ threadId, body, media = null, authorUserId }) {
   return withTransaction(pool, async (client) => {
-    const row = await repo.findNextPostNumberForUpdateByThreadId(client, threadId);
-    if (!row) {
+    const [row, viewer] = await Promise.all([
+      repo.findNextPostNumberForUpdateByThreadId(client, threadId),
+      getViewerById(authorUserId, client),
+    ]);
+
+    if (!row || !canViewerAccessBoardTags(row.visible_to_tags, viewer)) {
       throw new DomainError("not_found");
     }
 

@@ -15,6 +15,7 @@
   type AdminBoard = {
     slug: string;
     name: string | null;
+    visible_to_tags: string[];
     created_at: string;
   };
 
@@ -25,12 +26,18 @@
   let creatingBoard = $state(false);
   let newBoardSlug = $state('');
   let newBoardName = $state('');
+  let newBoardVisibleToTags = $state('');
   let tagsDraft = $state<Record<string, string>>({});
+  let boardVisibilityDraft = $state<Record<string, string>>({});
   let successModalOpen = $state(false);
   let successMessage = $state('');
 
   for (const user of data.users) {
     tagsDraft[user.id] = user.tags.join(', ');
+  }
+
+  for (const board of data.boards) {
+    boardVisibilityDraft[board.slug] = (board.visible_to_tags ?? []).join(', ');
   }
 
   function showSuccessModal(message: string) {
@@ -111,6 +118,10 @@
   async function createBoard() {
     const slug = newBoardSlug.trim().toLowerCase();
     const name = newBoardName.trim();
+    const visibleToTags = newBoardVisibleToTags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
 
     if (!slug || !name) {
       error = 'Board slug and name are required';
@@ -124,7 +135,7 @@
       const res = await csrfFetch(fetch, '/api/admin/boards', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ slug, name })
+        body: JSON.stringify({ slug, name, visibleToTags })
       });
 
       if (!res.ok) {
@@ -134,6 +145,7 @@
 
       newBoardSlug = '';
       newBoardName = '';
+      newBoardVisibleToTags = '';
       await invalidateAll();
       showSuccessModal(`Board /${slug}/ created.`);
     } catch (e) {
@@ -160,6 +172,36 @@
       showSuccessModal(`Board /${board.slug}/ deleted.`);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to remove board';
+    } finally {
+      busyBoardSlug = null;
+    }
+  }
+
+  async function saveBoardVisibility(board: AdminBoard) {
+    busyBoardSlug = board.slug;
+    error = '';
+
+    try {
+      const visibleToTags = (boardVisibilityDraft[board.slug] ?? '')
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+
+      const res = await csrfFetch(fetch, `/api/admin/boards/${board.slug}/visibility`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ visibleToTags })
+      });
+
+      if (!res.ok) {
+        const details = await res.text();
+        throw new Error(details || 'Failed to update board visibility');
+      }
+
+      await invalidateAll();
+      showSuccessModal(`Visibility saved for /${board.slug}/.`);
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to update board visibility';
     } finally {
       busyBoardSlug = null;
     }
@@ -204,6 +246,12 @@
       maxlength="100"
       disabled={creatingBoard}
     />
+    <input
+      bind:value={newBoardVisibleToTags}
+      placeholder="visible tags (optional, comma separated)"
+      maxlength="600"
+      disabled={creatingBoard}
+    />
     <button type="button" on:click={createBoard} disabled={creatingBoard}>
       {creatingBoard ? 'Creating...' : 'Create board'}
     </button>
@@ -217,6 +265,7 @@
         <tr>
           <th>Slug</th>
           <th>Name</th>
+          <th>Visible tags</th>
           <th>Created</th>
           <th>Actions</th>
         </tr>
@@ -226,8 +275,28 @@
           <tr>
             <td>/{board.slug}/</td>
             <td>{board.name ?? ''}</td>
+            <td>
+              <input
+                value={boardVisibilityDraft[board.slug] ?? ''}
+                on:input={(e) => {
+                  boardVisibilityDraft = {
+                    ...boardVisibilityDraft,
+                    [board.slug]: (e.currentTarget as HTMLInputElement).value
+                  };
+                }}
+                placeholder="public (blank) or tags"
+                disabled={busyBoardSlug === board.slug}
+              />
+            </td>
             <td>{new Date(board.created_at).toLocaleString()}</td>
             <td>
+              <button
+                type="button"
+                on:click={() => saveBoardVisibility(board)}
+                disabled={busyBoardSlug === board.slug}
+              >
+                Save visibility
+              </button>
               <button
                 type="button"
                 on:click={() => removeBoard(board)}

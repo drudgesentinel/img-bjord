@@ -23,6 +23,10 @@ async function ensureSchema() {
 export async function dbPing() {
   await ensureSchema();
   await pool.query("select 1");
+  await pool.query("alter table boards add column if not exists visible_to_tags text[]");
+  await pool.query("update boards set visible_to_tags = '{}'::text[] where visible_to_tags is null");
+  await pool.query("alter table boards alter column visible_to_tags set default '{}'");
+  await pool.query("alter table boards alter column visible_to_tags set not null");
   await pool.query(`create table if not exists users (
     id uuid primary key default gen_random_uuid(),
     username text not null unique,

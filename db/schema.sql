@@ -4,8 +4,14 @@ create extension if not exists pgcrypto;
 create table if not exists boards (
   slug text primary key,
   name text,
+  visible_to_tags text[] not null default '{}',
   created_at timestamptz not null default now()
 );
+
+alter table boards add column if not exists visible_to_tags text[];
+update boards set visible_to_tags = '{}'::text[] where visible_to_tags is null;
+alter table boards alter column visible_to_tags set default '{}';
+alter table boards alter column visible_to_tags set not null;
 
 -- users
 create table if not exists users (

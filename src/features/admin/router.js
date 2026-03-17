@@ -3,7 +3,16 @@ import { z } from "zod";
 import { validateBody, validateParams } from "../../middleware/validate.js";
 import { requireAdmin } from "../../middleware/requireAdmin.js";
 import { isDomainError } from "../../lib/domainErrors.js";
-import { approveUser, createBoard, deleteBoard, deleteUser, listBoards, listUsers, setUserTags } from "./service.js";
+import {
+  approveUser,
+  createBoard,
+  deleteBoard,
+  deleteUser,
+  listBoards,
+  listUsers,
+  setBoardVisibility,
+  setUserTags,
+} from "./service.js";
 
 const router = Router();
 
@@ -19,6 +28,13 @@ const boardSchema = z
   .object({
     slug: z.string().trim().regex(/^[a-z0-9]{1,20}$/),
     name: z.string().trim().min(1).max(100),
+    visibleToTags: z.array(z.string()).max(32).optional(),
+  })
+  .strict();
+
+const boardVisibilitySchema = z
+  .object({
+    visibleToTags: z.array(z.string()).max(32),
   })
   .strict();
 
@@ -86,6 +102,37 @@ router.delete("/boards/:slug", requireAdmin, validateParams(boardParamsSchema), 
     next(err);
   }
 });
+
+router.put(
+  "/boards/:slug/visibility",
+  requireAdmin,
+  validateParams(boardParamsSchema),
+  validateBody(boardVisibilitySchema),
+  async (req, res, next) => {
+    try {
+      const { slug } = req.validatedParams;
+      const { visibleToTags } = req.validatedBody;
+      const board = await setBoardVisibility({ slug, visibleToTags });
+      res.json({ board });
+    } catch (err) {
+      if (isDomainError(err, "validation_error")) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: [err.message],
+            fieldErrors: {},
+          },
+        });
+      }
+
+      if (isDomainError(err, "not_found")) {
+        return res.status(404).json({ error: "not_found" });
+      }
+
+      next(err);
+    }
+  },
+);
 
 router.delete("/users/:id", requireAdmin, validateParams(userParamsSchema), async (req, res, next) => {
   try {

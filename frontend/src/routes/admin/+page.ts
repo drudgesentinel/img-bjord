@@ -13,6 +13,7 @@ type AdminUser = {
 type AdminBoard = {
   slug: string;
   name: string | null;
+  visible_to_tags: string[];
   created_at: string;
 };
 

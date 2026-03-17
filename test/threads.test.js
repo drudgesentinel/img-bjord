@@ -69,6 +69,25 @@ describe("threads", () => {
     return nonAdminAgent;
   }
 
+  async function createAndLoginUserWithTags({ username, password, tags = [] }) {
+    await createUser({
+      username,
+      password,
+      isApproved: true,
+      isAdmin: false,
+      tags,
+    });
+
+    const userAgent = request.agent(app);
+    const loginRes = await userAgent
+      .post("/api/auth/login")
+      .set("content-type", "application/json")
+      .send({ username, password });
+
+    expect(loginRes.status).toBe(200);
+    return userAgent;
+  }
+
   it("can view a thread by board + subjectSlug + token (posts ordered by post_number)", async () => {
     const { thread } = await createThread("Lifting Routine", "first post");
 
@@ -186,5 +205,34 @@ describe("threads", () => {
     const del = await nonAdminAgent.delete(`/api/threads/${thread.id}`);
     expect(del.status).toBe(403);
     expect(del.body.error).toBe("forbidden");
+  });
+
+  it("hides UUID thread detail when board visibility tags do not match", async () => {
+    const createBoardRes = await agent
+      .post("/api/admin/boards")
+      .set("content-type", "application/json")
+      .send({ slug: "vip3", name: "VIP 3", visibleToTags: ["vip"] });
+    expect(createBoardRes.status).toBe(201);
+
+    const createThreadRes = await agent
+      .post("/api/boards/vip3/threads")
+      .set("content-type", "application/json")
+      .send({ subject: "private", body: "op" });
+    expect(createThreadRes.status).toBe(201);
+
+    const threadId = createThreadRes.body.thread.id;
+
+    const anonView = await request(app).get(`/api/threads/${threadId}`);
+    expect(anonView.status).toBe(404);
+
+    const taggedUserAgent = await createAndLoginUserWithTags({
+      username: "vip_1001",
+      password: "tagged user pass",
+      tags: ["vip"],
+    });
+
+    const taggedView = await taggedUserAgent.get(`/api/threads/${threadId}`);
+    expect(taggedView.status).toBe(200);
+    expect(taggedView.body.thread.id).toBe(threadId);
   });
 });

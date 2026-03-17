@@ -33,6 +33,25 @@ describe("boards", () => {
     await dbClose();
   });
 
+  async function createAndLoginUserWithTags({ username, password, tags = [] }) {
+    await createUser({
+      username,
+      password,
+      isApproved: true,
+      isAdmin: false,
+      tags,
+    });
+
+    const userAgent = request.agent(app);
+    const loginRes = await userAgent
+      .post("/api/auth/login")
+      .set("content-type", "application/json")
+      .send({ username, password });
+    expect(loginRes.status).toBe(200);
+
+    return userAgent;
+  }
+
   it("can create a thread on a board (OP is post #1) and includes token/subject_slug", async () => {
     const createRes = await agent
       .post("/api/boards/b/threads")
@@ -123,5 +142,55 @@ describe("boards", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("validation_error");
+  });
+
+  it("hides restricted boards from users without matching tags", async () => {
+    const createBoardRes = await agent
+      .post("/api/admin/boards")
+      .set("content-type", "application/json")
+      .send({ slug: "vip", name: "VIP", visibleToTags: ["vip"] });
+    expect(createBoardRes.status).toBe(201);
+
+    const anonList = await request(app).get("/api/boards");
+    expect(anonList.status).toBe(200);
+    expect(anonList.body.boards.some((b) => b.slug === "vip")).toBe(false);
+
+    const taggedUserAgent = await createAndLoginUserWithTags({
+      username: "vip_0001",
+      password: "tagged user pass",
+      tags: ["vip"],
+    });
+
+    const taggedList = await taggedUserAgent.get("/api/boards");
+    expect(taggedList.status).toBe(200);
+    expect(taggedList.body.boards.some((b) => b.slug === "vip")).toBe(true);
+  });
+
+  it("returns 404 for restricted board thread listing without matching tags", async () => {
+    const createBoardRes = await agent
+      .post("/api/admin/boards")
+      .set("content-type", "application/json")
+      .send({ slug: "vip2", name: "VIP 2", visibleToTags: ["vip"] });
+    expect(createBoardRes.status).toBe(201);
+
+    const createThreadRes = await agent
+      .post("/api/boards/vip2/threads")
+      .set("content-type", "application/json")
+      .send({ subject: "private", body: "op" });
+    expect(createThreadRes.status).toBe(201);
+
+    const anonListThreads = await request(app).get("/api/boards/vip2/threads");
+    expect(anonListThreads.status).toBe(404);
+    expect(anonListThreads.body.error).toBe("board_not_found");
+
+    const taggedUserAgent = await createAndLoginUserWithTags({
+      username: "vip_0002",
+      password: "tagged user pass",
+      tags: ["vip"],
+    });
+
+    const taggedListThreads = await taggedUserAgent.get("/api/boards/vip2/threads");
+    expect(taggedListThreads.status).toBe(200);
+    expect(taggedListThreads.body.threads.length).toBe(1);
   });
 });

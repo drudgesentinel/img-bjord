@@ -22,6 +22,10 @@ function normalizeTags(tags) {
   return [...dedup];
 }
 
+function normalizeBoardVisibilityTags(tags) {
+  return normalizeTags(tags);
+}
+
 export async function listUsers() {
   return repo.listUsers(pool);
 }
@@ -67,9 +71,10 @@ export async function listBoards() {
   return repo.listBoards(pool);
 }
 
-export async function createBoard({ slug, name }) {
+export async function createBoard({ slug, name, visibleToTags = [] }) {
   const normalizedSlug = String(slug ?? "").trim().toLowerCase();
   const normalizedName = String(name ?? "").trim();
+  const normalizedVisibleToTags = normalizeBoardVisibilityTags(visibleToTags);
 
   if (!/^[a-z0-9]{1,20}$/.test(normalizedSlug)) {
     throw new DomainError("validation_error", "slug must match ^[a-z0-9]{1,20}$");
@@ -80,13 +85,33 @@ export async function createBoard({ slug, name }) {
   }
 
   try {
-    return await repo.insertBoard(pool, { slug: normalizedSlug, name: normalizedName });
+    return await repo.insertBoard(pool, {
+      slug: normalizedSlug,
+      name: normalizedName,
+      visibleToTags: normalizedVisibleToTags,
+    });
   } catch (err) {
     if (err && typeof err === "object" && err.code === "23505") {
       throw new DomainError("already_exists");
     }
     throw err;
   }
+}
+
+export async function setBoardVisibility({ slug, visibleToTags }) {
+  const normalizedSlug = String(slug ?? "").trim().toLowerCase();
+  const normalizedVisibleToTags = normalizeBoardVisibilityTags(visibleToTags);
+
+  const updated = await repo.updateBoardVisibilityBySlug(pool, {
+    slug: normalizedSlug,
+    visibleToTags: normalizedVisibleToTags,
+  });
+
+  if (!updated) {
+    throw new DomainError("not_found");
+  }
+
+  return updated;
 }
 
 export async function deleteBoard({ slug }) {

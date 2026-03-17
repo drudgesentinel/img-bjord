@@ -1,8 +1,10 @@
 export async function findThreadById(db, threadId) {
   const r = await db.query(
-    `select id, board_slug, subject, subject_slug, token, created_at, bumped_at
-     from threads
-     where id = $1`,
+    `select t.id, t.board_slug, t.subject, t.subject_slug, t.token, t.created_at, t.bumped_at,
+            b.visible_to_tags
+     from threads t
+     join boards b on b.slug = t.board_slug
+     where t.id = $1`,
     [threadId],
   );
 
@@ -34,11 +36,23 @@ export async function listPostsByThreadId(db, threadId) {
 
 export async function findNextPostNumberForUpdateByThreadId(db, threadId) {
   const r = await db.query(
-    `select next_post_number
-     from threads
-     where id = $1
+    `select t.next_post_number, t.board_slug, b.visible_to_tags
+     from threads t
+     join boards b on b.slug = t.board_slug
+     where t.id = $1
      for update`,
     [threadId],
+  );
+
+  return r.rows[0] ?? null;
+}
+
+export async function findViewerById(db, userId) {
+  const r = await db.query(
+    `select is_admin, tags
+     from users
+     where id = $1`,
+    [userId],
   );
 
   return r.rows[0] ?? null;

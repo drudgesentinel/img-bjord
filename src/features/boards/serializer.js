@@ -2,6 +2,7 @@ export function serializeBoard(board) {
   return {
     slug: board.slug,
     name: board.name,
+    visible_to_tags: board.visible_to_tags ?? [],
     created_at: board.created_at,
   };
 }

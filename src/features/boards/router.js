@@ -9,7 +9,7 @@ import { processMediaUpload } from "../../lib/processMediaUpload.js";
 import {
   listBoards,
   createThread,
-  listThreads,
+  listThreadsForViewer,
   getThreadDetailByPretty,
   createReplyByPretty,
   deleteThreadByPretty,
@@ -59,7 +59,7 @@ const replySchema = z
 
 router.get("/", async (req, res, next) => {
   try {
-    const boards = await listBoards();
+    const boards = await listBoards({ viewerUserId: req.session?.userId ?? null });
     res.json(serializeBoardsResponse(boards));
   } catch (err) {
     next(err);
@@ -124,7 +124,11 @@ router.get(
       const { slug: boardSlug } = req.validatedParams;
       const limit = req.validatedQuery.limit ?? 20;
 
-      const threads = await listThreads({ boardSlug, limit });
+      const threads = await listThreadsForViewer({
+        boardSlug,
+        viewerUserId: req.session?.userId ?? null,
+        limit,
+      });
       res.json(serializeThreadListResponse(threads));
     } catch (err) {
       if (isDomainError(err, "board_not_found")) {
@@ -142,7 +146,12 @@ router.get(
   async (req, res, next) => {
     try {
       const { slug: boardSlug, subjectSlug, token } = req.validatedParams;
-      const detail = await getThreadDetailByPretty({ boardSlug, subjectSlug, token });
+      const detail = await getThreadDetailByPretty({
+        boardSlug,
+        subjectSlug,
+        token,
+        viewerUserId: req.session?.userId ?? null,
+      });
       res.json(serializeThreadDetailResponse(detail));
     } catch (err) {
       if (isDomainError(err, "not_found")) {

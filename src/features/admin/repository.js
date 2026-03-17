@@ -55,7 +55,7 @@ export async function approveUserById(db, userId) {
 
 export async function listBoards(db) {
   const r = await db.query(
-    `select slug, name, created_at
+    `select slug, name, visible_to_tags, created_at
      from boards
      order by slug asc`,
   );
@@ -63,12 +63,24 @@ export async function listBoards(db) {
   return r.rows;
 }
 
-export async function insertBoard(db, { slug, name }) {
+export async function insertBoard(db, { slug, name, visibleToTags = [] }) {
   const r = await db.query(
-    `insert into boards (slug, name)
-     values ($1, $2)
-     returning slug, name, created_at`,
-    [slug, name],
+    `insert into boards (slug, name, visible_to_tags)
+     values ($1, $2, $3)
+     returning slug, name, visible_to_tags, created_at`,
+    [slug, name, visibleToTags],
+  );
+
+  return r.rows[0] ?? null;
+}
+
+export async function updateBoardVisibilityBySlug(db, { slug, visibleToTags }) {
+  const r = await db.query(
+    `update boards
+     set visible_to_tags = $2
+     where slug = $1
+     returning slug, name, visible_to_tags, created_at`,
+    [slug, visibleToTags],
   );
 
   return r.rows[0] ?? null;

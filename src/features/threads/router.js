@@ -23,7 +23,7 @@ router.get("/:id", validateParams(threadIdParamsSchema), async (req, res, next) 
   try {
     const { id: threadId } = req.validatedParams;
 
-    const detail = await getThreadDetailById(threadId);
+    const detail = await getThreadDetailById(threadId, req.session?.userId ?? null);
     res.json(serializeThreadDetailResponse(detail));
   } catch (err) {
     if (isDomainError(err, "not_found")) {

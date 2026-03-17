@@ -143,6 +143,14 @@ describe("admin", () => {
     expect(create.status).toBe(201);
     expect(create.body.board.slug).toBe(boardSlug);
 
+    const visibilityRes = await adminAgent
+      .put(`/api/admin/boards/${boardSlug}/visibility`)
+      .set("content-type", "application/json")
+      .send({ visibleToTags: ["vip", "staff", "vip"] });
+
+    expect(visibilityRes.status).toBe(200);
+    expect(visibilityRes.body.board.visible_to_tags).toEqual(["vip", "staff"]);
+
     const list = await adminAgent.get("/api/admin/boards");
     expect(list.status).toBe(200);
     expect(list.body.boards.some((b) => b.slug === boardSlug)).toBe(true);

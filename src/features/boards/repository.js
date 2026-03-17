@@ -1,6 +1,6 @@
 export async function listBoards(db) {
   const r = await db.query(
-    `select slug, name, created_at
+    `select slug, name, visible_to_tags, created_at
      from boards
      order by slug asc`,
   );
@@ -11,6 +11,28 @@ export async function listBoards(db) {
 export async function existsBoardBySlug(db, boardSlug) {
   const r = await db.query(`select 1 from boards where slug = $1`, [boardSlug]);
   return r.rowCount > 0;
+}
+
+export async function findBoardBySlug(db, boardSlug) {
+  const r = await db.query(
+    `select slug, name, visible_to_tags, created_at
+     from boards
+     where slug = $1`,
+    [boardSlug],
+  );
+
+  return r.rows[0] ?? null;
+}
+
+export async function findViewerById(db, userId) {
+  const r = await db.query(
+    `select is_admin, tags
+     from users
+     where id = $1`,
+    [userId],
+  );
+
+  return r.rows[0] ?? null;
 }
 
 export async function insertThread(db, { boardSlug, subject, subjectSlug, token, deleteKeyHash }) {

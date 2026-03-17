@@ -10,8 +10,26 @@ import {
 import { generateDeleteKey, hashDeleteKey } from "../../lib/deleteKey.js";
 import * as repo from "./repository.js";
 
-export async function listBoards() {
-  return repo.listBoards(pool);
+function canViewerAccessBoard(board, viewer) {
+  const boardTags = Array.isArray(board?.visible_to_tags) ? board.visible_to_tags : [];
+  if (viewer?.is_admin) return true;
+  if (boardTags.length === 0) return true;
+
+  const viewerTags = new Set(Array.isArray(viewer?.tags) ? viewer.tags : []);
+  return boardTags.some((tag) => viewerTags.has(tag));
+}
+
+async function getViewerById(userId, db = pool) {
+  if (!userId) return null;
+
+  const viewer = await repo.findViewerById(db, userId);
+  return viewer ?? null;
+}
+
+export async function listBoards({ viewerUserId = null } = {}) {
+  const [boards, viewer] = await Promise.all([repo.listBoards(pool), getViewerById(viewerUserId)]);
+
+  return boards.filter((board) => canViewerAccessBoard(board, viewer));
 }
 
 export async function createThread({ boardSlug, subject, body, media = null, authorUserId }) {
@@ -21,8 +39,12 @@ export async function createThread({ boardSlug, subject, body, media = null, aut
   const deleteKeyHash = hashDeleteKey(deleteKey);
 
   return withTransaction(pool, async (client) => {
-    const boardExists = await repo.existsBoardBySlug(client, boardSlug);
-    if (!boardExists) {
+    const [board, viewer] = await Promise.all([
+      repo.findBoardBySlug(client, boardSlug),
+      getViewerById(authorUserId, client),
+    ]);
+
+    if (!viewer || !board || !canViewerAccessBoard(board, viewer)) {
       throw new DomainError("board_not_found");
     }
 
@@ -75,23 +97,28 @@ export async function createThread({ boardSlug, subject, body, media = null, aut
   });
 }
 
-export async function listThreads({ boardSlug, limit = 20 }) {
-  const boardExists = await repo.existsBoardBySlug(pool, boardSlug);
-  if (!boardExists) {
+export async function listThreadsForViewer({ boardSlug, viewerUserId = null, limit = 20 }) {
+  const [board, viewer] = await Promise.all([repo.findBoardBySlug(pool, boardSlug), getViewerById(viewerUserId)]);
+
+  if (!board || !canViewerAccessBoard(board, viewer)) {
     throw new DomainError("board_not_found");
   }
 
   return repo.listThreadsByBoard(pool, { boardSlug, limit });
 }
 
-export async function getThreadDetailByPretty({ boardSlug, subjectSlug, token }) {
-  const thread = await repo.findThreadByPretty(pool, {
-    boardSlug,
-    subjectSlug,
-    token: normalizeToken(token),
-  });
+export async function getThreadDetailByPretty({ boardSlug, subjectSlug, token, viewerUserId = null }) {
+  const [thread, board, viewer] = await Promise.all([
+    repo.findThreadByPretty(pool, {
+      boardSlug,
+      subjectSlug,
+      token: normalizeToken(token),
+    }),
+    repo.findBoardBySlug(pool, boardSlug),
+    getViewerById(viewerUserId),
+  ]);
 
-  if (!thread) {
+  if (!thread || !board || !canViewerAccessBoard(board, viewer)) {
     throw new DomainError("not_found");
   }
 
@@ -101,6 +128,15 @@ export async function getThreadDetailByPretty({ boardSlug, subjectSlug, token })
 
 export async function createReplyByPretty({ boardSlug, subjectSlug, token, body, media = null, authorUserId }) {
   return withTransaction(pool, async (client) => {
+    const [board, viewer] = await Promise.all([
+      repo.findBoardBySlug(client, boardSlug),
+      getViewerById(authorUserId, client),
+    ]);
+
+    if (!viewer || !board || !canViewerAccessBoard(board, viewer)) {
+      throw new DomainError("not_found");
+    }
+
     const thread = await repo.findThreadForUpdateByPretty(client, {
       boardSlug,
       subjectSlug,
