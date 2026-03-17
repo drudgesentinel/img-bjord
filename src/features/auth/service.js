@@ -39,8 +39,22 @@ function assertPassword(password) {
   return value;
 }
 
-export async function registerUserWithGeneratedUsername({ password, username }) {
+function assertActivationCode(activationCode) {
+  const value = String(activationCode ?? "").trim();
+  if (!value) {
+    return null;
+  }
+
+  if (value.length < 3 || value.length > 500) {
+    throw new DomainError("validation_error", "activation message must be 3-500 characters");
+  }
+
+  return value;
+}
+
+export async function registerUserWithGeneratedUsername({ password, username, activationCode }) {
   const normalizedPassword = assertPassword(password);
+  const normalizedActivationCode = assertActivationCode(activationCode);
   const passwordHash = await bcrypt.hash(normalizedPassword, 12);
   const requestedUsername = typeof username === "string" && username.trim() ? assertRegistrationUsername(username) : null;
 
@@ -70,6 +84,8 @@ export async function registerUserWithGeneratedUsername({ password, username }) 
     return repo.insertUser(client, {
       username: usernameToUse,
       passwordHash,
+      activationCode: normalizedActivationCode,
+      isApproved: isFirstUser,
       isAdmin: isFirstUser,
     });
   });
@@ -151,6 +167,10 @@ export async function loginUser({ username, password }) {
     throw new DomainError("invalid_credentials");
   }
 
+  if (!user.is_approved) {
+    throw new DomainError("account_pending_approval");
+  }
+
   const ok = await bcrypt.compare(normalizedPassword, user.password_hash);
   if (!ok) {
     throw new DomainError("invalid_credentials");
@@ -159,6 +179,7 @@ export async function loginUser({ username, password }) {
   return {
     id: user.id,
     username: user.username,
+    is_approved: user.is_approved,
     is_admin: user.is_admin,
     tags: user.tags,
     created_at: user.created_at,

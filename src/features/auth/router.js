@@ -16,6 +16,7 @@ const router = Router();
 const registerSchema = z
   .object({
     password: z.string().min(8).max(200),
+    activationCode: z.string().trim().min(3).max(500).optional(),
     username: z.string().trim().min(3).max(64).regex(/^[a-z0-9_]+$/).optional(),
   })
   .strict();
@@ -54,11 +55,19 @@ router.get("/me", async (req, res, next) => {
 
 router.post("/register", validateBody(registerSchema), async (req, res, next) => {
   try {
-    const { password, username } = req.validatedBody;
-    const user = await registerUserWithGeneratedUsername({ password, username });
-    req.session.userId = user.id;
+    const { password, username, activationCode } = req.validatedBody;
+    const user = await registerUserWithGeneratedUsername({ password, username, activationCode });
 
-    res.status(201).json({ user });
+    if (user.is_approved) {
+      req.session.userId = user.id;
+      return res.status(201).json({ user });
+    }
+
+    return res.status(202).json({
+      user,
+      pendingApproval: true,
+      message: "Account created and pending admin approval",
+    });
   } catch (err) {
     if (isDomainError(err, "validation_error")) {
       return res.status(400).json({
@@ -140,6 +149,10 @@ router.post("/login", validateBody(loginSchema), async (req, res, next) => {
 
     if (isDomainError(err, "invalid_credentials")) {
       return res.status(401).json({ error: "invalid_credentials" });
+    }
+
+    if (isDomainError(err, "account_pending_approval")) {
+      return res.status(403).json({ error: "account_pending_approval" });
     }
 
     next(err);

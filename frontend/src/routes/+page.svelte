@@ -12,6 +12,8 @@
       user: {
         id: string;
         username: string;
+        is_admin: boolean;
+        is_approved: boolean;
         created_at: string;
       } | null;
     };
@@ -27,6 +29,10 @@
   let loginPassword = $state('');
   let authBusy = $state(false);
   let authError = $state('');
+  let registerNotice = $state('');
+  let registerActivationCode = $state('');
+  let pendingApprovalModalOpen = $state(false);
+  let pendingApprovalMessage = $state('Account created and pending admin approval.');
 
   async function loadUsernameOptions() {
     candidateBusy = true;
@@ -99,6 +105,8 @@
   async function register() {
     authBusy = true;
     authError = '';
+    registerNotice = '';
+    pendingApprovalModalOpen = false;
 
     try {
       const res = await fetch('/api/auth/register', {
@@ -106,6 +114,7 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           password: registerPassword,
+          activationCode: registerActivationCode.trim() ? registerActivationCode : undefined,
           username: selectedRegisterUsername || undefined
         })
       });
@@ -116,16 +125,29 @@
       }
 
       const body = (await res.json()) as {
+        pendingApproval?: boolean;
+        message?: string;
         user: {
           username: string;
+          activation_code?: string | null;
+          is_approved?: boolean;
         };
       };
 
       registerPassword = '';
+      registerActivationCode = '';
       loginUsername = body.user.username;
       usernameOptions = [];
+      reversibleUsernameOptions = [];
       selectedRegisterUsername = '';
-      await invalidateAll();
+
+      if (body.pendingApproval) {
+        pendingApprovalMessage = body.message ?? 'Account created and pending admin approval.';
+        pendingApprovalModalOpen = true;
+      } else {
+        registerNotice = '';
+        await invalidateAll();
+      }
     } catch (e) {
       authError = e instanceof Error ? e.message : 'Registration failed';
     } finally {
@@ -136,6 +158,8 @@
   async function login() {
     authBusy = true;
     authError = '';
+    registerNotice = '';
+    pendingApprovalModalOpen = false;
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -145,7 +169,16 @@
       });
 
       if (!res.ok) {
-        const details = await res.text();
+        let details = '';
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body.error === 'account_pending_approval') {
+            throw new Error('Account is pending admin approval');
+          }
+          details = body.error ?? '';
+        } catch {
+          details = await res.text();
+        }
         throw new Error(details || 'Login failed');
       }
 
@@ -162,6 +195,7 @@
   async function logout() {
     authBusy = true;
     authError = '';
+    pendingApprovalModalOpen = false;
 
     const currentUsername = data.user?.username ?? '';
 
@@ -257,11 +291,22 @@
         Password
         <input type="password" bind:value={registerPassword} minlength="8" maxlength="200" />
       </label>
+      <label>
+        Activation message
+        <input
+          bind:value={registerActivationCode}
+          maxlength="500"
+        />
+      </label>
       <div>
         <button
           type="button"
           on:click={register}
-          disabled={authBusy || registerPassword.length < 8 || !selectedRegisterUsername}
+          disabled={
+            authBusy ||
+            registerPassword.length < 8 ||
+            !selectedRegisterUsername
+          }
         >
           Create account
         </button>
@@ -294,7 +339,28 @@
   {#if authError}
     <p>{authError}</p>
   {/if}
+
+  {#if registerNotice}
+    <p>{registerNotice}</p>
+  {/if}
+
 </section>
+
+{#if pendingApprovalModalOpen}
+  <div class="modal-backdrop" role="presentation" on:click={() => (pendingApprovalModalOpen = false)}>
+    <div
+      class="pending-approval-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pending-approval-title"
+      on:click={(event) => event.stopPropagation()}
+    >
+      <h3 id="pending-approval-title">Account pending approval</h3>
+      <p>{pendingApprovalMessage}</p>
+      <button type="button" on:click={() => (pendingApprovalModalOpen = false)}>OK</button>
+    </div>
+  </div>
+{/if}
 
 <hr />
 
@@ -324,5 +390,32 @@
 
   .reverse-button {
     font-size: 0.8rem;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+  }
+
+  .pending-approval-modal {
+    background: #fff;
+    color: #111;
+    max-width: 28rem;
+    width: 100%;
+    border: 3px solid #1f4b99;
+    border-radius: 0.5rem;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    padding: 1rem;
+  }
+
+  .pending-approval-modal h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
   }
 </style>

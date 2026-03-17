@@ -1,6 +1,6 @@
 export async function listUsers(db) {
   const r = await db.query(
-    `select id, username, is_admin, tags, created_at
+    `select id, username, activation_code, is_approved, is_admin, tags, created_at
      from users
      order by created_at asc`,
   );
@@ -10,7 +10,7 @@ export async function listUsers(db) {
 
 export async function findUserById(db, userId) {
   const r = await db.query(
-    `select id, username, is_admin, tags, created_at
+    `select id, username, activation_code, is_approved, is_admin, tags, created_at
      from users
      where id = $1`,
     [userId],
@@ -34,8 +34,20 @@ export async function updateUserTags(db, { userId, tags }) {
     `update users
      set tags = $2
      where id = $1
-     returning id, username, is_admin, tags, created_at`,
+     returning id, username, activation_code, is_approved, is_admin, tags, created_at`,
     [userId, tags],
+  );
+
+  return r.rows[0] ?? null;
+}
+
+export async function approveUserById(db, userId) {
+  const r = await db.query(
+    `update users
+     set is_approved = true
+     where id = $1
+     returning id, username, activation_code, is_approved, is_admin, tags, created_at`,
+    [userId],
   );
 
   return r.rows[0] ?? null;

@@ -4,6 +4,8 @@
   type AdminUser = {
     id: string;
     username: string;
+    activation_code: string | null;
+    is_approved: boolean;
     is_admin: boolean;
     tags: string[];
     created_at: string;
@@ -72,6 +74,25 @@
       await invalidateAll();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to update tags';
+    } finally {
+      busyUserId = null;
+    }
+  }
+
+  async function approveUser(user: AdminUser) {
+    busyUserId = user.id;
+    error = '';
+
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/approve`, { method: 'POST' });
+      if (!res.ok) {
+        const details = await res.text();
+        throw new Error(details || 'Failed to approve user');
+      }
+
+      await invalidateAll();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to approve user';
     } finally {
       busyUserId = null;
     }
@@ -203,6 +224,8 @@
     <thead>
       <tr>
         <th>Username</th>
+        <th>Activation code</th>
+        <th>Approval</th>
         <th>Role</th>
         <th>Tags (comma separated)</th>
         <th>Created</th>
@@ -213,6 +236,8 @@
       {#each data.users as user}
         <tr>
           <td>{user.username}</td>
+          <td>{user.activation_code ?? ''}</td>
+          <td>{user.is_approved ? 'approved' : 'pending'}</td>
           <td>{user.is_admin ? 'admin' : 'user'}</td>
           <td>
             <input
@@ -229,6 +254,11 @@
           </td>
           <td>{new Date(user.created_at).toLocaleString()}</td>
           <td>
+            {#if !user.is_approved}
+              <button type="button" on:click={() => approveUser(user)} disabled={busyUserId === user.id}>
+                Approve
+              </button>
+            {/if}
             <button type="button" on:click={() => saveTags(user)} disabled={busyUserId === user.id}>
               Save tags
             </button>

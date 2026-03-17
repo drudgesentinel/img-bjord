@@ -19,13 +19,18 @@ describe("admin", () => {
     await dbClose();
   });
 
-  async function register(agent, password = "correct horse battery staple") {
+  async function register(
+    agent,
+    password = "correct horse battery staple",
+    expectedStatus = 201,
+    activationCode = "hey it's mike please activate my account",
+  ) {
     const res = await agent
       .post("/api/auth/register")
       .set("content-type", "application/json")
-      .send({ password });
+      .send({ password, activationCode });
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(expectedStatus);
     return res.body.user;
   }
 
@@ -34,7 +39,7 @@ describe("admin", () => {
     const admin = await register(adminAgent);
 
     const userAgent = request.agent(app);
-    const user = await register(userAgent, "another pass phrase");
+    const user = await register(userAgent, "another pass phrase", 202, "hey it's sarah please approve me");
 
     expect(admin.is_admin).toBe(true);
     expect(user.is_admin).toBe(false);
@@ -64,11 +69,43 @@ describe("admin", () => {
     await register(adminAgent);
 
     const userAgent = request.agent(app);
-    await register(userAgent, "another pass phrase");
+    const pendingUser = await register(userAgent, "another pass phrase", 202, "hey it's sarah please approve me");
+
+    const approveRes = await adminAgent.post(`/api/admin/users/${pendingUser.id}/approve`);
+    expect(approveRes.status).toBe(204);
+
+    const loginRes = await userAgent
+      .post("/api/auth/login")
+      .set("content-type", "application/json")
+      .send({ username: pendingUser.username, password: "another pass phrase" });
+    expect(loginRes.status).toBe(200);
 
     const list = await userAgent.get("/api/admin/users");
     expect(list.status).toBe(403);
     expect(list.body.error).toBe("forbidden");
+  });
+
+  it("newly created non-first user is pending and can be approved", async () => {
+    const adminAgent = request.agent(app);
+    await register(adminAgent);
+
+    const userAgent = request.agent(app);
+    const pendingUser = await register(userAgent, "another pass phrase", 202, "hey it's sarah please approve me");
+
+    const list = await adminAgent.get("/api/admin/users");
+    expect(list.status).toBe(200);
+
+    const listedPending = list.body.users.find((u) => u.id === pendingUser.id);
+    expect(listedPending).toBeTruthy();
+    expect(listedPending.is_approved).toBe(false);
+    expect(listedPending.activation_code).toBe("hey it's sarah please approve me");
+
+    const approveRes = await adminAgent.post(`/api/admin/users/${pendingUser.id}/approve`);
+    expect(approveRes.status).toBe(204);
+
+    const listAfterApprove = await adminAgent.get("/api/admin/users");
+    const listedApproved = listAfterApprove.body.users.find((u) => u.id === pendingUser.id);
+    expect(listedApproved.is_approved).toBe(true);
   });
 
   it("cannot delete the last remaining admin", async () => {

@@ -27,7 +27,7 @@ describe("auth", () => {
     const registerRes = await agent
       .post("/api/auth/register")
       .set("content-type", "application/json")
-      .send({ password: "correct horse battery staple" });
+      .send({ password: "correct horse battery staple", activationCode: "ALPHA123" });
 
     expect(registerRes.status).toBe(201);
     expect(registerRes.body.user.username).toMatch(/^[a-z0-9_]+$/);
@@ -53,7 +53,7 @@ describe("auth", () => {
     const registerRes = await registrationAgent
       .post("/api/auth/register")
       .set("content-type", "application/json")
-      .send({ password: "correct horse battery staple" });
+      .send({ password: "correct horse battery staple", activationCode: "ALPHA123" });
 
     const username = registerRes.body.user.username;
 
@@ -75,13 +75,41 @@ describe("auth", () => {
     expect(meAfterLogout.status).toBe(401);
   });
 
+  it("requires admin approval for non-first account login", async () => {
+    const adminAgent = request.agent(app);
+    const adminRegisterRes = await adminAgent
+      .post("/api/auth/register")
+      .set("content-type", "application/json")
+      .send({ password: "correct horse battery staple", activationCode: "ALPHA123" });
+    expect(adminRegisterRes.status).toBe(201);
+
+    const userAgent = request.agent(app);
+    const pendingRes = await userAgent
+      .post("/api/auth/register")
+      .set("content-type", "application/json")
+      .send({ password: "another pass phrase", activationCode: "BETA456" });
+
+    expect(pendingRes.status).toBe(202);
+    expect(pendingRes.body.pendingApproval).toBe(true);
+
+    const username = pendingRes.body.user.username;
+
+    const loginRes = await request(app)
+      .post("/api/auth/login")
+      .set("content-type", "application/json")
+      .send({ username, password: "another pass phrase" });
+
+    expect(loginRes.status).toBe(403);
+    expect(loginRes.body.error).toBe("account_pending_approval");
+  });
+
   it("allows login with display username when unique", async () => {
     const registrationAgent = request.agent(app);
 
     const registerRes = await registrationAgent
       .post("/api/auth/register")
       .set("content-type", "application/json")
-      .send({ password: "correct horse battery staple" });
+      .send({ password: "correct horse battery staple", activationCode: "ALPHA123" });
 
     const username = registerRes.body.user.username;
     const displayUsername = username.replace(/_\d+$/, "");
@@ -115,7 +143,7 @@ describe("auth", () => {
     const registerRes = await agent
       .post("/api/auth/register")
       .set("content-type", "application/json")
-      .send({ password: "correct horse battery staple", username: selected });
+      .send({ password: "correct horse battery staple", activationCode: "ALPHA123", username: selected });
 
     expect(registerRes.status).toBe(201);
     expect(registerRes.body.user.username).toBe(selected);
@@ -131,7 +159,7 @@ describe("auth", () => {
     const registerRes = await agent
       .post("/api/auth/register")
       .set("content-type", "application/json")
-      .send({ password: "correct horse battery staple", username: selected });
+      .send({ password: "correct horse battery staple", activationCode: "ALPHA123", username: selected });
 
     expect(registerRes.status).toBe(201);
 

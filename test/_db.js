@@ -26,10 +26,17 @@ export async function dbPing() {
     id uuid primary key default gen_random_uuid(),
     username text not null unique,
     password_hash text not null,
+    activation_code text,
+    is_approved boolean,
     is_admin boolean not null default false,
     tags text[] not null default '{}',
     created_at timestamptz not null default now()
   )`);
+  await pool.query("alter table users add column if not exists activation_code text");
+  await pool.query("alter table users add column if not exists is_approved boolean");
+  await pool.query("update users set is_approved = true where is_approved is null");
+  await pool.query("alter table users alter column is_approved set default false");
+  await pool.query("alter table users alter column is_approved set not null");
   await pool.query("alter table users add column if not exists is_admin boolean not null default false");
   await pool.query("alter table users add column if not exists tags text[] not null default '{}'");
   await pool.query(`create table if not exists consumed_usernames (

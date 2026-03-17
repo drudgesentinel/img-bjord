@@ -12,6 +12,8 @@ create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   username text not null unique,
   password_hash text not null,
+  activation_code text,
+  is_approved boolean,
   is_admin boolean not null default false,
   tags text[] not null default '{}',
   created_at timestamptz not null default now()
@@ -28,6 +30,11 @@ on conflict (username) do nothing;
 
 alter table users add column if not exists is_admin boolean not null default false;
 alter table users add column if not exists tags text[] not null default '{}';
+alter table users add column if not exists activation_code text;
+alter table users add column if not exists is_approved boolean;
+update users set is_approved = true where is_approved is null;
+alter table users alter column is_approved set default false;
+alter table users alter column is_approved set not null;
 
 -- threads (no legacy support)
 create table if not exists threads (

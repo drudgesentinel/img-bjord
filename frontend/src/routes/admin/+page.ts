@@ -3,6 +3,8 @@ import { error } from '@sveltejs/kit';
 type AdminUser = {
   id: string;
   username: string;
+  activation_code: string | null;
+  is_approved: boolean;
   is_admin: boolean;
   tags: string[];
   created_at: string;

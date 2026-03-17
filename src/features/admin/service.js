@@ -54,6 +54,15 @@ export async function setUserTags({ userId, tags }) {
   return updated;
 }
 
+export async function approveUser({ userId }) {
+  const updated = await repo.approveUserById(pool, userId);
+  if (!updated) {
+    throw new DomainError("not_found");
+  }
+
+  return updated;
+}
+
 export async function listBoards() {
   return repo.listBoards(pool);
 }

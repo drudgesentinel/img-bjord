@@ -3,7 +3,7 @@ import { z } from "zod";
 import { validateBody, validateParams } from "../../middleware/validate.js";
 import { requireAdmin } from "../../middleware/requireAdmin.js";
 import { isDomainError } from "../../lib/domainErrors.js";
-import { createBoard, deleteBoard, deleteUser, listBoards, listUsers, setUserTags } from "./service.js";
+import { approveUser, createBoard, deleteBoard, deleteUser, listBoards, listUsers, setUserTags } from "./service.js";
 
 const router = Router();
 
@@ -106,6 +106,20 @@ router.delete("/users/:id", requireAdmin, validateParams(userParamsSchema), asyn
 
     if (isDomainError(err, "last_admin")) {
       return res.status(400).json({ error: "last_admin" });
+    }
+
+    next(err);
+  }
+});
+
+router.post("/users/:id/approve", requireAdmin, validateParams(userParamsSchema), async (req, res, next) => {
+  try {
+    const { id: userId } = req.validatedParams;
+    await approveUser({ userId });
+    res.status(204).end();
+  } catch (err) {
+    if (isDomainError(err, "not_found")) {
+      return res.status(404).json({ error: "not_found" });
     }
 
     next(err);
