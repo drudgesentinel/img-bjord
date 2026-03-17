@@ -60,9 +60,16 @@ const USERNAME_ADJECTIVES = [
   "knight of the",
   "zombie",
   "mystery meat",
+  "trailer park",
+  "undead",
+  "forty ounce",
+  "cult of the",
+  "prophet of the",
+  "omega",
 ];
 
 const USERNAME_NOUNS = [
+  "zyn",
   "lighthouse",
   "jailer",
   "tormentor",
@@ -121,6 +128,8 @@ const USERNAME_NOUNS = [
   "bones",
   "billionaire",
   "oppressor",
+  "spray cheese",
+  "collard greens",
 ];
 
 function sanitizeSlugPart(value) {
