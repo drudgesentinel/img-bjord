@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import { validateBody, validateParams, validateQuery } from "../../middleware/validate.js";
+import { validateBody, validateParams } from "../../middleware/validate.js";
 import { uploadOptionalMedia } from "../../middleware/uploadImage.js";
 import { requireAuth } from "../../middleware/requireAuth.js";
+import { requireAdmin } from "../../middleware/requireAdmin.js";
 import { isDomainError } from "../../lib/domainErrors.js";
 import { processMediaUpload } from "../../lib/processMediaUpload.js";
 import { getThreadDetailById, createReplyByThreadId, deleteThreadById } from "./service.js";
@@ -15,12 +16,6 @@ const threadIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
 const replySchema = z
   .object({
     body: z.string().trim().max(5000).optional().default(""),
-  })
-  .strict();
-
-const deleteThreadQuerySchema = z
-  .object({
-    key: z.string().trim().min(1).max(128),
   })
   .strict();
 
@@ -84,11 +79,10 @@ router.post(
   },
 );
 
-router.delete("/:id", requireAuth, validateParams(threadIdParamsSchema), validateQuery(deleteThreadQuerySchema), async (req, res, next) => {
+router.delete("/:id", requireAdmin, validateParams(threadIdParamsSchema), async (req, res, next) => {
   try {
     const { id: threadId } = req.validatedParams;
-    const { key } = req.validatedQuery;
-    await deleteThreadById({ threadId, deleteKey: key });
+    await deleteThreadById({ threadId });
     res.status(204).end();
   } catch (err) {
     if (isDomainError(err, "validation_error")) {
@@ -99,10 +93,6 @@ router.delete("/:id", requireAuth, validateParams(threadIdParamsSchema), validat
           fieldErrors: {},
         },
       });
-    }
-
-    if (isDomainError(err, "invalid_delete_key")) {
-      return res.status(403).json({ error: "invalid_delete_key" });
     }
 
     if (isDomainError(err, "not_found")) {

@@ -45,7 +45,6 @@ export type CreateThreadResponse = {
   thread: Thread;
   firstPost: Post;
   canonicalPath: string;
-  deleteKey: string;
 };
 
 export type ReplyResponse = {

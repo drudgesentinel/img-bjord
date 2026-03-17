@@ -9,17 +9,6 @@ export async function findThreadById(db, threadId) {
   return r.rows[0] ?? null;
 }
 
-export async function findThreadDeleteAuthById(db, threadId) {
-  const r = await db.query(
-    `select id, delete_key_hash
-     from threads
-     where id = $1`,
-    [threadId],
-  );
-
-  return r.rows[0] ?? null;
-}
-
 export async function deleteThreadById(db, threadId) {
   const r = await db.query(`delete from threads where id = $1`, [threadId]);
   return r.rowCount > 0;

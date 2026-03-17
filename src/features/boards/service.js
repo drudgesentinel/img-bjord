@@ -131,15 +131,10 @@ export async function createReplyByPretty({ boardSlug, subjectSlug, token, body,
   });
 }
 
-export async function deleteThreadByPretty({ boardSlug, subjectSlug, token, deleteKey }) {
+export async function deleteThreadByPretty({ boardSlug, subjectSlug, token }) {
   const normalizedToken = normalizeToken(token);
-  const normalizedDeleteKey = deleteKey?.trim();
 
-  if (!normalizedDeleteKey) {
-    throw new DomainError("validation_error", "delete key is required");
-  }
-
-  const thread = await repo.findThreadDeleteAuthByPretty(pool, {
+  const thread = await repo.findThreadByPretty(pool, {
     boardSlug,
     subjectSlug,
     token: normalizedToken,
@@ -147,10 +142,6 @@ export async function deleteThreadByPretty({ boardSlug, subjectSlug, token, dele
 
   if (!thread) {
     throw new DomainError("not_found");
-  }
-
-  if (thread.delete_key_hash !== hashDeleteKey(normalizedDeleteKey)) {
-    throw new DomainError("invalid_delete_key");
   }
 
   await repo.deleteThreadById(pool, thread.id);
