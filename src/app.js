@@ -17,6 +17,10 @@ export function createApp() {
 
   const DEBUG = process.env.DEBUG === "true";
 
+  if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
+
   if (DEBUG) {
     app.use((req, res, next) => {
       console.log(`[DEBUG] ${req.method} ${req.url}`);
@@ -45,7 +49,7 @@ export function createApp() {
       cookie: {
         httpOnly: true,
         sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NODE_ENV === "production" ? "auto" : false,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       },
     }),

@@ -1,5 +1,8 @@
 export async function api<T>(fetchFn: typeof fetch, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetchFn(path, init);
+  const res = await fetchFn(path, {
+    credentials: 'include',
+    ...init
+  });
 
   if (!res.ok) {
     let details = '';
