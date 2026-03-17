@@ -39,6 +39,11 @@ async function saveMediaToS3(_buffer, _extension) {
   return saveImageAvifToS3(_buffer);
 }
 
+async function saveMediaPathToS3(filePath, extension) {
+  const buffer = await fs.readFile(filePath);
+  return saveMediaToS3(buffer, extension);
+}
+
 export async function saveMediaFile(buffer, extension) {
   if (mediaStorageDriver === "s3") {
     return saveMediaToS3(buffer, extension);
@@ -51,6 +56,25 @@ export async function saveMediaFile(buffer, extension) {
   const absolutePath = path.join(uploadDir, filename);
 
   await fs.writeFile(absolutePath, buffer);
+
+  return {
+    key: filename,
+    url: `${publicPrefix}/${filename}`,
+  };
+}
+
+export async function saveMediaFileFromPath(filePath, extension) {
+  if (mediaStorageDriver === "s3") {
+    return saveMediaPathToS3(filePath, extension);
+  }
+
+  await fs.mkdir(uploadDir, { recursive: true });
+
+  const safeExtension = sanitizeExtension(extension);
+  const filename = `${crypto.randomUUID()}.${safeExtension}`;
+  const absolutePath = path.join(uploadDir, filename);
+
+  await fs.copyFile(filePath, absolutePath);
 
   return {
     key: filename,

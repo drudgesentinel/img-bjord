@@ -21,6 +21,9 @@
   let mediaPreviewUrl = $state('');
   let mediaPreviewIsVideo = $state(false);
 
+  const MAX_MEDIA_UPLOAD_BYTES = 100 * 1024 * 1024;
+  const ALLOWED_MEDIA_TYPES = new Set(['video/mp4', 'video/webm']);
+
   function setMedia(file: File | null) {
     if (mediaPreviewUrl) {
       URL.revokeObjectURL(mediaPreviewUrl);
@@ -37,6 +40,24 @@
   function handleMediaChange(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0] ?? null;
+
+    if (file) {
+      if (!file.type.startsWith('image/') && !ALLOWED_MEDIA_TYPES.has(file.type)) {
+        error = 'Media must be an image, MP4, or WebM video';
+        input.value = '';
+        setMedia(null);
+        return;
+      }
+
+      if (file.size > MAX_MEDIA_UPLOAD_BYTES) {
+        error = 'Media exceeds 100MB upload limit';
+        input.value = '';
+        setMedia(null);
+        return;
+      }
+    }
+
+    error = '';
     setMedia(file);
   }
 
@@ -135,7 +156,12 @@
       clearMedia();
       await invalidateAll();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to post reply';
+      const message = e instanceof Error ? e.message : 'Failed to post reply';
+      if (mediaFile && /NetworkError|Failed to fetch/i.test(message)) {
+        error = `${message}. If this happens only for videos, check reverse proxy upload size (e.g. nginx client_max_body_size) and MAX_IMAGE_UPLOAD_BYTES.`;
+      } else {
+        error = message;
+      }
     } finally {
       replying = false;
     }

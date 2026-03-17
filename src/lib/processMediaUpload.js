@@ -1,8 +1,9 @@
 import sharp from "sharp";
+import fs from "node:fs/promises";
 import { DomainError } from "./domainErrors.js";
-import { saveImageAvif, saveMediaFile } from "./mediaStorage.js";
+import { saveImageAvif, saveMediaFileFromPath } from "./mediaStorage.js";
 
-const MAX_MEDIA_UPLOAD_BYTES = Number(process.env.MAX_IMAGE_UPLOAD_BYTES ?? 10 * 1024 * 1024);
+const MAX_MEDIA_UPLOAD_BYTES = Number(process.env.MAX_IMAGE_UPLOAD_BYTES ?? 100 * 1024 * 1024);
 const AVIF_QUALITY = Number(process.env.AVIF_QUALITY ?? 50);
 const AVIF_EFFORT = Number(process.env.AVIF_EFFORT ?? 4);
 
@@ -12,7 +13,7 @@ const VIDEO_MIME_TO_EXTENSION = {
 };
 
 async function processImageMedia(file) {
-  const { data, info } = await sharp(file.buffer)
+  const { data, info } = await sharp(file.path)
     .rotate()
     .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
     .toBuffer({ resolveWithObject: true });
@@ -36,7 +37,7 @@ async function processVideoMedia(file) {
     throw new DomainError("validation_error", "Uploaded video must be MP4 or WebM");
   }
 
-  const stored = await saveMediaFile(file.buffer, extension);
+  const stored = await saveMediaFileFromPath(file.path, extension);
 
   return {
     mediaType: "video",
@@ -52,21 +53,27 @@ async function processVideoMedia(file) {
 export async function processMediaUpload(file) {
   if (!file) return null;
 
-  if (!file.mimetype) {
+  try {
+    if (!file.mimetype) {
+      throw new DomainError("validation_error", "Uploaded file must be an image, MP4, or WebM video");
+    }
+
+    if (file.size > MAX_MEDIA_UPLOAD_BYTES) {
+      throw new DomainError("validation_error", "Upload exceeds maximum allowed size");
+    }
+
+    if (file.mimetype.startsWith("image/")) {
+      return processImageMedia(file);
+    }
+
+    if (file.mimetype in VIDEO_MIME_TO_EXTENSION) {
+      return processVideoMedia(file);
+    }
+
     throw new DomainError("validation_error", "Uploaded file must be an image, MP4, or WebM video");
+  } finally {
+    if (file.path) {
+      await fs.unlink(file.path).catch(() => {});
+    }
   }
-
-  if (file.size > MAX_MEDIA_UPLOAD_BYTES) {
-    throw new DomainError("validation_error", "Upload exceeds maximum allowed size");
-  }
-
-  if (file.mimetype.startsWith("image/")) {
-    return processImageMedia(file);
-  }
-
-  if (file.mimetype in VIDEO_MIME_TO_EXTENSION) {
-    return processVideoMedia(file);
-  }
-
-  throw new DomainError("validation_error", "Uploaded file must be an image, MP4, or WebM video");
 }
