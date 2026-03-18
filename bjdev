@@ -36,6 +36,20 @@ sub apply-schema(Str $url) {
     run-or-die <psql>, $url, < -v ON_ERROR_STOP=1 -f >, 'db/schema.sql';
 }
 
+sub prompt-secret(Str $message --> Str) {
+    print $message;
+    $*OUT.flush;
+
+    my $hide = run <stty -echo>, :out, :err;
+    my $secret = $*IN.get // '';
+    my $restore = run <stty echo>, :out, :err;
+
+    # move to next line after hidden input
+    say '';
+
+    return $secret;
+}
+
 # the colon implies it's a named parameter, not positional
 sub run-or-die(*@cmd, :$ok-exitcodes = (0)) {
     my $proc = run |@cmd;
@@ -150,7 +164,7 @@ multi MAIN('admin', $cmd, $name?) {
         #this is named stupidly, but manually creates the first admin user
         when any <create-admin-user cau> {
             my $username = $name // prompt "Admin username: ";
-            my $password = prompt "Admin password: ", :echo(0);
+            my $password = prompt-secret("Admin password: ");
             $username = $username.trim;
             if !$username || !$password {
                 note "Username and password are required";
@@ -164,7 +178,7 @@ multi MAIN('admin', $cmd, $name?) {
         }
         when any <create-user cu> {
             my $username = $name // prompt "Username: ";
-            my $password = prompt "Password: ", :echo(0);
+            my $password = prompt-secret("Password: ");
             $username = $username.trim;
             if !$username || !$password {
                 note "Username and password are required";
@@ -235,7 +249,7 @@ multi MAIN('admin', $cmd, $name?) {
 
         when any <password-reset pr> {
             my $target = $name // prompt "Username or user id to reset password: ";
-            my $new-password = prompt "New password: ", :echo(0);
+            my $new-password = prompt-secret("New password: ");
 
             $target = $target.trim;
 
