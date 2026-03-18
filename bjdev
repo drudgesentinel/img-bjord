@@ -2,6 +2,40 @@
 
 my constant $CONTAINER = 'imageboard-pg';
 my constant $IMAGE     = 'docker.io/library/postgres:16';
+
+sub db-mode() returns Str {
+    (%*ENV<BJORD_DB_MODE> // 'podman').lc
+}
+
+sub using-external-db() returns Bool {
+    db-mode() eq 'external'
+}
+
+sub require-database-url() returns Str {
+    my $url = %*ENV<DATABASE_URL> // '';
+    if !$url.trim {
+        note "DATABASE_URL is required when BJORD_DB_MODE=external";
+        exit 1;
+    }
+    $url.trim
+}
+
+sub run-app-psql(Str $sql) {
+    if using-external-db() {
+        my $url = require-database-url();
+        run-or-die <psql>, $url, < -v ON_ERROR_STOP=1 -c >, $sql;
+    } else {
+        ensure-db-up();
+        run-or-die <podman exec -i>, $CONTAINER,
+            <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
+            "-c", $sql;
+    }
+}
+
+sub apply-schema(Str $url) {
+    run-or-die <psql>, $url, < -v ON_ERROR_STOP=1 -f >, 'db/schema.sql';
+}
+
 # the colon implies it's a named parameter, not positional
 sub run-or-die(*@cmd, :$ok-exitcodes = (0)) {
     my $proc = run |@cmd;
@@ -60,29 +94,49 @@ sub wait-for-db(:$timeout = 10) {
 multi MAIN('db', $cmd) {
     given $cmd {
         when any <up start> {
-            say "bringing up postgres (podman)";
+            if using-external-db() {
+                my $app-url = require-database-url();
+                say "BJORD_DB_MODE=external: applying schema to DATABASE_URL";
+                apply-schema($app-url);
 
-            ensure-db-up();
-            wait-for-db();
+                my $test-url = %*ENV<TEST_DATABASE_URL> // %*ENV<TEST_DATABASE> // %*ENV<DATABASE_URL_TEST> // '';
+                if $test-url.trim {
+                    say "BJORD_DB_MODE=external: applying schema to TEST_DATABASE_URL";
+                    apply-schema($test-url.trim);
+                }
+            } else {
+                say "bringing up postgres (podman)";
 
-            say "applying schema to app database";
-            run-or-die <./scripts/db-init.sh>, "imageboard";
+                ensure-db-up();
+                wait-for-db();
 
-            say "applying schema to test database";
-            run-or-die <./scripts/db-init.sh>, "imageboard_test";
+                say "applying schema to app database";
+                run-or-die <./scripts/db-init.sh>, "imageboard";
+
+                say "applying schema to test database";
+                run-or-die <./scripts/db-init.sh>, "imageboard_test";
+            }
         }
         # The :ok-exitcodes(0,125) bit is there because Podman commonly returns 125 when a container
         # doesn’t exist / can’t be operated on. This makes down/nuke “no-op safe”.
         # by this i mean it does nothing if the container state is already what we want
         when any <down stop> {
-            say "stopping postgres container (if running)";
-            # ok if it's already stopped / missing
-            run-or-die <podman stop>, $CONTAINER, :ok-exitcodes(0, 125);
+            if using-external-db() {
+                say "BJORD_DB_MODE=external: no container to stop";
+            } else {
+                say "stopping postgres container (if running)";
+                # ok if it's already stopped / missing
+                run-or-die <podman stop>, $CONTAINER, :ok-exitcodes(0, 125);
+            }
         }
 
         when any <nuke delete> {
-            say "deleting postgres container (if exists)";
-            run-or-die <podman rm -f>, $CONTAINER, :ok-exitcodes(0, 125);
+            if using-external-db() {
+                say "BJORD_DB_MODE=external: no container to delete";
+            } else {
+                say "deleting postgres container (if exists)";
+                run-or-die <podman rm -f>, $CONTAINER, :ok-exitcodes(0, 125);
+            }
         }
 
         default {
@@ -95,7 +149,6 @@ multi MAIN('admin', $cmd, $name?) {
     given $cmd {
         #this is named stupidly, but manually creates the first admin user
         when any <create-admin-user cau> {
-            ensure-db-up();
             my $username = $name // prompt "Admin username: ";
             my $password = prompt "Admin password: ", :echo(0);
             $username = $username.trim;
@@ -107,12 +160,9 @@ multi MAIN('admin', $cmd, $name?) {
             my $escaped-username = $username.subst("'", "''", :g);
             my $escaped-password = $password.subst("'", "''", :g);
 
-            run-or-die <podman exec -i>, $CONTAINER,
-                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-c", "INSERT INTO users (username, password_hash, is_approved, is_admin) VALUES ('{$escaped-username}', crypt('{$escaped-password}', gen_salt('bf')), true, true);";
+            run-app-psql("INSERT INTO users (username, password_hash, is_approved, is_admin) VALUES ('{$escaped-username}', crypt('{$escaped-password}', gen_salt('bf')), true, true);");
         }
         when any <create-user cu> {
-            ensure-db-up();
             my $username = $name // prompt "Username: ";
             my $password = prompt "Password: ", :echo(0);
             $username = $username.trim;
@@ -124,12 +174,9 @@ multi MAIN('admin', $cmd, $name?) {
             my $escaped-username = $username.subst("'", "''", :g);
             my $escaped-password = $password.subst("'", "''", :g);
 
-            run-or-die <podman exec -i>, $CONTAINER,
-                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-c", "INSERT INTO users (username, password_hash) VALUES ('{$escaped-username}', crypt('{$escaped-password}', gen_salt('bf')));";
+            run-app-psql("INSERT INTO users (username, password_hash) VALUES ('{$escaped-username}', crypt('{$escaped-password}', gen_salt('bf')));");
         }
         when any <approve a> {
-            ensure-db-up();
             my $target = $name // prompt "Username or user id to approve: ";
             $target = $target.trim;
             if !$target {
@@ -139,17 +186,12 @@ multi MAIN('admin', $cmd, $name?) {
 
             my $escaped-target = $target.subst("'", "''", :g);
 
-            run-or-die <podman exec -i>, $CONTAINER,
-                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-c", "UPDATE users SET is_approved = true WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';";
+            run-app-psql("UPDATE users SET is_approved = true WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';");
 
-            run-or-die <podman exec -i>, $CONTAINER,
-                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-c", "SELECT id, username, is_approved, activation_code FROM users WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';";
+            run-app-psql("SELECT id, username, is_approved, activation_code FROM users WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';");
         }
 
         when any <promote p> {
-            ensure-db-up();
             my $target-username = $name // prompt "Username to promote: ";
             $target-username = $target-username.trim;
             if !$target-username {
@@ -159,17 +201,12 @@ multi MAIN('admin', $cmd, $name?) {
 
             my $escaped-username = $target-username.subst("'", "''", :g);
 
-            run-or-die <podman exec -i>, $CONTAINER,
-                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-c", "UPDATE users SET is_admin = true WHERE username = '{$escaped-username}';";
+            run-app-psql("UPDATE users SET is_admin = true WHERE username = '{$escaped-username}';");
 
-            run-or-die <podman exec -i>, $CONTAINER,
-                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-c", "SELECT username, is_admin FROM users WHERE username = '{$escaped-username}';";
+            run-app-psql("SELECT username, is_admin FROM users WHERE username = '{$escaped-username}';");
         }
 
         when any <board makeboard> {
-            ensure-db-up();
             my $slug = prompt "Board slug (e.g. 'b'): ";
             my $board-name = $name // prompt "Board name (e.g. 'Random'): ";
             $slug = $slug.trim;
@@ -180,11 +217,9 @@ multi MAIN('admin', $cmd, $name?) {
             }
 
             my $escaped-slug = $slug.subst("'", "''", :g);
-            my $escaped-name = $name.subst("'", "''", :g);
+            my $escaped-name = $board-name.subst("'", "''", :g);
 
-            run-or-die <podman exec -i>, $CONTAINER,
-                <psql -U postgres -d imageboard -v ON_ERROR_STOP=1>,
-                "-c", "INSERT INTO boards (slug, name) VALUES ('{$escaped-slug}', '{$escaped-name}');";
+            run-app-psql("INSERT INTO boards (slug, name) VALUES ('{$escaped-slug}', '{$escaped-name}');");
         }
 
         default {
