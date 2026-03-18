@@ -206,6 +206,33 @@ multi MAIN('admin', $cmd, $name?) {
             run-app-psql("SELECT username, is_admin FROM users WHERE username = '{$escaped-username}';");
         }
 
+        when any <rename rn> {
+            my $target = $name // prompt "Current username or user id: ";
+            my $new-username = prompt "New username: ";
+
+            $target = $target.trim;
+            $new-username = $new-username.trim;
+
+            if !$target || !$new-username {
+                note "Both current username/user id and new username are required";
+                exit 1;
+            }
+
+            if $target eq $new-username {
+                note "New username must be different from current username/user id";
+                exit 1;
+            }
+
+            my $escaped-target = $target.subst("'", "''", :g);
+            my $escaped-new = $new-username.subst("'", "''", :g);
+
+            run-app-psql("INSERT INTO consumed_usernames (username) VALUES ('{$escaped-new}') ON CONFLICT (username) DO NOTHING;");
+
+            run-app-psql("UPDATE users SET username = '{$escaped-new}' WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';");
+
+            run-app-psql("SELECT id, username, is_approved, is_admin FROM users WHERE username = '{$escaped-new}';");
+        }
+
         when any <board makeboard> {
             my $slug = prompt "Board slug (e.g. 'b'): ";
             my $board-name = $name // prompt "Board name (e.g. 'Random'): ";
