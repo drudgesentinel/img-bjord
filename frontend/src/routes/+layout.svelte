@@ -236,4 +236,11 @@
   :global(.post-editor) {
     font-family: var(--post-font-family);
   }
+
+  :global(.post-body) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+  }
 </style>
