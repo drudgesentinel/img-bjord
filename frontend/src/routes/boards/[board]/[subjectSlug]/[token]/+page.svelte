@@ -18,6 +18,7 @@
   let replying = $state(false);
   let deleting = $state(false);
   let deletingReplyIds = $state<Record<string, boolean>>({});
+  let replyMenuOpenPostIds = $state<Record<string, boolean>>({});
   let opMenuOpen = $state(false);
   let error = $state('');
   let expandedImageUrl = $state<string | null>(null);
@@ -187,8 +188,24 @@
     return currentUserIsAdmin || post.author_user_id === currentUserId;
   }
 
+  function toggleReplyMenu(postId: string) {
+    replyMenuOpenPostIds = {
+      ...replyMenuOpenPostIds,
+      [postId]: !replyMenuOpenPostIds[postId]
+    };
+  }
+
+  function closeReplyMenu(postId: string) {
+    if (!replyMenuOpenPostIds[postId]) return;
+    replyMenuOpenPostIds = {
+      ...replyMenuOpenPostIds,
+      [postId]: false
+    };
+  }
+
   async function deleteReply(post: Post) {
     if (!canDeleteReply(post)) return;
+    closeReplyMenu(post.id);
     if (!confirm('Delete this reply permanently? This also deletes attached media.')) return;
 
     deletingReplyIds = {
@@ -273,9 +290,29 @@
           </span>
         {/if}
         {#if canDeleteReply(post)}
-          <button type="button" on:click={() => deleteReply(post)} disabled={Boolean(deletingReplyIds[post.id])}>
-            {deletingReplyIds[post.id] ? 'Deleting…' : 'Delete'}
-          </button>
+          <span class="op-menu">
+            <button
+              type="button"
+              class="op-menu-trigger"
+              aria-label="Reply options"
+              title="Reply options"
+              on:click={() => toggleReplyMenu(post.id)}
+              disabled={deleting || replying || Boolean(deletingReplyIds[post.id])}
+            >
+              ⋯
+            </button>
+            {#if replyMenuOpenPostIds[post.id]}
+              <span class="op-menu-panel">
+                <button
+                  type="button"
+                  on:click={() => deleteReply(post)}
+                  disabled={deleting || replying || Boolean(deletingReplyIds[post.id])}
+                >
+                  {deletingReplyIds[post.id] ? 'Deleting…' : 'Delete'}
+                </button>
+              </span>
+            {/if}
+          </span>
         {/if}
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
