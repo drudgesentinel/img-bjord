@@ -1,5 +1,6 @@
 import { pool } from "../../db.js";
 import { DomainError } from "../../lib/domainErrors.js";
+import { deleteMediaByUrl } from "../../lib/mediaStorage.js";
 import { withTransaction } from "../../lib/withTransaction.js";
 import * as repo from "./repository.js";
 
@@ -69,5 +70,45 @@ export async function deleteThreadById({ threadId }) {
   const deleted = await repo.deleteThreadById(pool, threadId);
   if (!deleted) {
     throw new DomainError("not_found");
+  }
+}
+
+export async function deleteReplyByThreadId({ threadId, postId, actorUserId }) {
+  const mediaUrls = await withTransaction(pool, async (client) => {
+    const [row, viewer] = await Promise.all([
+      repo.findNextPostNumberForUpdateByThreadId(client, threadId),
+      getViewerById(actorUserId, client),
+    ]);
+
+    if (!row || !canViewerAccessBoardTags(row.visible_to_tags, viewer)) {
+      throw new DomainError("not_found");
+    }
+
+    const post = await repo.findPostDeleteCandidateByThreadId(client, { threadId, postId });
+    if (!post) {
+      throw new DomainError("not_found");
+    }
+
+    if (post.post_number === 1) {
+      throw new DomainError("validation_error", "cannot_delete_original_post");
+    }
+
+    const isOwner = post.author_user_id === actorUserId;
+    if (!viewer.is_admin && !isOwner) {
+      throw new DomainError("forbidden");
+    }
+
+    const deleted = await repo.deletePostById(client, post.id);
+    if (!deleted) {
+      throw new DomainError("not_found");
+    }
+
+    return [...new Set([post.media_url, post.image_url].filter(Boolean))];
+  });
+
+  for (const url of mediaUrls) {
+    await deleteMediaByUrl(url).catch((err) => {
+      console.warn("failed_to_delete_media", { url, message: err?.message ?? String(err) });
+    });
   }
 }

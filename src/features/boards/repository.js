@@ -212,3 +212,23 @@ export async function bumpAndIncrementNextPostNumber(db, threadId) {
     [threadId],
   );
 }
+
+export async function findPostDeleteCandidateByPretty(db, { boardSlug, subjectSlug, token, postId }) {
+  const r = await db.query(
+    `select p.id, p.thread_id, p.author_user_id, p.post_number, p.media_url, p.image_url
+     from threads t
+     join posts p on p.thread_id = t.id
+     where t.board_slug = $1
+       and t.subject_slug = $2
+       and t.token = $3
+       and p.id = $4`,
+    [boardSlug, subjectSlug, token, postId],
+  );
+
+  return r.rows[0] ?? null;
+}
+
+export async function deletePostById(db, postId) {
+  const r = await db.query(`delete from posts where id = $1`, [postId]);
+  return r.rowCount > 0;
+}

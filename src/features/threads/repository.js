@@ -123,3 +123,19 @@ export async function bumpAndIncrementNextPostNumber(db, threadId) {
     [threadId],
   );
 }
+
+export async function findPostDeleteCandidateByThreadId(db, { threadId, postId }) {
+  const r = await db.query(
+    `select id, thread_id, author_user_id, post_number, media_url, image_url
+     from posts
+     where thread_id = $1 and id = $2`,
+    [threadId, postId],
+  );
+
+  return r.rows[0] ?? null;
+}
+
+export async function deletePostById(db, postId) {
+  const r = await db.query(`delete from posts where id = $1`, [postId]);
+  return r.rowCount > 0;
+}

@@ -97,3 +97,31 @@ export function isLocalMediaStorage() {
 export function getMediaStorageDriver() {
   return mediaStorageDriver;
 }
+
+export async function deleteMediaByUrl(url) {
+  if (!url) return false;
+
+  if (mediaStorageDriver === "s3") {
+    // S3 delete flow is intentionally not wired yet.
+    return false;
+  }
+
+  const normalizedUrl = String(url);
+  const expectedPrefix = `${publicPrefix}/`;
+  if (!normalizedUrl.startsWith(expectedPrefix)) {
+    return false;
+  }
+
+  const filename = path.basename(normalizedUrl.slice(expectedPrefix.length));
+  const absolutePath = path.join(uploadDir, filename);
+
+  try {
+    await fs.unlink(absolutePath);
+    return true;
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === "ENOENT") {
+      return false;
+    }
+    throw err;
+  }
+}

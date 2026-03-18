@@ -6,12 +6,23 @@ import { requireAuth } from "../../middleware/requireAuth.js";
 import { requireAdmin } from "../../middleware/requireAdmin.js";
 import { isDomainError } from "../../lib/domainErrors.js";
 import { processMediaUpload } from "../../lib/processMediaUpload.js";
-import { getThreadDetailById, createReplyByThreadId, deleteThreadById } from "./service.js";
+import {
+  getThreadDetailById,
+  createReplyByThreadId,
+  deleteReplyByThreadId,
+  deleteThreadById,
+} from "./service.js";
 import { serializeReplyResponse, serializeThreadDetailResponse } from "./serializer.js";
 
 const router = Router();
 
 const threadIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
+const replyDeleteParamsSchema = z
+  .object({
+    id: z.string().uuid(),
+    postId: z.string().uuid(),
+  })
+  .strict();
 
 const replySchema = z
   .object({
@@ -102,5 +113,39 @@ router.delete("/:id", requireAdmin, validateParams(threadIdParamsSchema), async 
     next(err);
   }
 });
+
+router.delete(
+  "/:id/replies/:postId",
+  requireAuth,
+  validateParams(replyDeleteParamsSchema),
+  async (req, res, next) => {
+    try {
+      const { id: threadId, postId } = req.validatedParams;
+      const actorUserId = req.session.userId;
+      await deleteReplyByThreadId({ threadId, postId, actorUserId });
+      res.status(204).end();
+    } catch (err) {
+      if (isDomainError(err, "validation_error")) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: [err.message],
+            fieldErrors: {},
+          },
+        });
+      }
+
+      if (isDomainError(err, "forbidden")) {
+        return res.status(403).json({ error: "forbidden" });
+      }
+
+      if (isDomainError(err, "not_found")) {
+        return res.status(404).json({ error: "not_found" });
+      }
+
+      next(err);
+    }
+  },
+);
 
 export default router;

@@ -17,6 +17,7 @@
   let body = $state('');
   let replying = $state(false);
   let deleting = $state(false);
+  let deletingReplyIds = $state<Record<string, boolean>>({});
   let opMenuOpen = $state(false);
   let error = $state('');
   let expandedImageUrl = $state<string | null>(null);
@@ -28,6 +29,7 @@
   const MAX_MEDIA_UPLOAD_BYTES = 100 * 1024 * 1024;
   const ALLOWED_MEDIA_TYPES = new Set(['video/mp4', 'video/webm']);
   const currentUserIsAdmin = $derived(Boolean(page.data.user?.is_admin));
+  const currentUserId = $derived(page.data.user?.id ?? null);
 
   function setMedia(file: File | null) {
     if (mediaPreviewUrl) {
@@ -178,6 +180,45 @@
       replying = false;
     }
   }
+
+  function canDeleteReply(post: Post) {
+    if (post.post_number <= 1) return false;
+    if (!currentUserId && !currentUserIsAdmin) return false;
+    return currentUserIsAdmin || post.author_user_id === currentUserId;
+  }
+
+  async function deleteReply(post: Post) {
+    if (!canDeleteReply(post)) return;
+    if (!confirm('Delete this reply permanently? This also deletes attached media.')) return;
+
+    deletingReplyIds = {
+      ...deletingReplyIds,
+      [post.id]: true
+    };
+    error = '';
+
+    try {
+      const res = await csrfFetch(
+        fetch,
+        `/api/boards/${data.board}/${data.thread.subject_slug}/${data.thread.token}/replies/${post.id}`,
+        { method: 'DELETE' }
+      );
+
+      if (!res.ok) {
+        const details = await res.text();
+        throw new Error(details || 'Failed to delete reply');
+      }
+
+      await invalidateAll();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to delete reply';
+    } finally {
+      deletingReplyIds = {
+        ...deletingReplyIds,
+        [post.id]: false
+      };
+    }
+  }
 </script>
 
 <h1>/{data.board}/ {data.thread.subject ?? '(untitled)'}</h1>
@@ -231,9 +272,14 @@
             {/each}
           </span>
         {/if}
+        {#if canDeleteReply(post)}
+          <button type="button" on:click={() => deleteReply(post)} disabled={Boolean(deletingReplyIds[post.id])}>
+            {deletingReplyIds[post.id] ? 'Deleting…' : 'Delete'}
+          </button>
+        {/if}
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
-      <pre class="post-body">{post.body}</pre>
+      <div class="post-body">{post.body}</div>
       {#if getEmbeddableLinks(post.body).length > 0}
         <div class="post-embeds">
           {#each getEmbeddableLinks(post.body) as embed}

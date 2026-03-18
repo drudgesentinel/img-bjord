@@ -8,6 +8,7 @@ import {
   isUniqueViolation,
 } from "../../lib/threadSlug.js";
 import { generateDeleteKey, hashDeleteKey } from "../../lib/deleteKey.js";
+import { deleteMediaByUrl } from "../../lib/mediaStorage.js";
 import * as repo from "./repository.js";
 
 function canViewerAccessBoard(board, viewer) {
@@ -181,4 +182,50 @@ export async function deleteThreadByPretty({ boardSlug, subjectSlug, token }) {
   }
 
   await repo.deleteThreadById(pool, thread.id);
+}
+
+export async function deleteReplyByPretty({ boardSlug, subjectSlug, token, postId, actorUserId }) {
+  const mediaUrls = await withTransaction(pool, async (client) => {
+    const [board, viewer] = await Promise.all([
+      repo.findBoardBySlug(client, boardSlug),
+      getViewerById(actorUserId, client),
+    ]);
+
+    if (!viewer || !board || !canViewerAccessBoard(board, viewer)) {
+      throw new DomainError("not_found");
+    }
+
+    const post = await repo.findPostDeleteCandidateByPretty(client, {
+      boardSlug,
+      subjectSlug,
+      token: normalizeToken(token),
+      postId,
+    });
+
+    if (!post) {
+      throw new DomainError("not_found");
+    }
+
+    if (post.post_number === 1) {
+      throw new DomainError("validation_error", "cannot_delete_original_post");
+    }
+
+    const isOwner = post.author_user_id === actorUserId;
+    if (!viewer.is_admin && !isOwner) {
+      throw new DomainError("forbidden");
+    }
+
+    const deleted = await repo.deletePostById(client, post.id);
+    if (!deleted) {
+      throw new DomainError("not_found");
+    }
+
+    return [...new Set([post.media_url, post.image_url].filter(Boolean))];
+  });
+
+  for (const url of mediaUrls) {
+    await deleteMediaByUrl(url).catch((err) => {
+      console.warn("failed_to_delete_media", { url, message: err?.message ?? String(err) });
+    });
+  }
 }

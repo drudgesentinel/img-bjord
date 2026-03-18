@@ -12,6 +12,7 @@ import {
   listThreadsForViewer,
   getThreadDetailByPretty,
   createReplyByPretty,
+  deleteReplyByPretty,
   deleteThreadByPretty,
 } from "./service.js";
 import {
@@ -35,6 +36,15 @@ const threadPrettyParamsSchema = z
     slug: z.string().trim().regex(/^[a-z0-9]{1,20}$/),
     subjectSlug: z.string().trim().regex(/^[a-z0-9-]{1,80}$/),
     token: z.string().trim().min(3).max(80),
+  })
+  .strict();
+
+const replyDeleteParamsSchema = z
+  .object({
+    slug: z.string().trim().regex(/^[a-z0-9]{1,20}$/),
+    subjectSlug: z.string().trim().regex(/^[a-z0-9-]{1,80}$/),
+    token: z.string().trim().min(3).max(80),
+    postId: z.string().uuid(),
   })
   .strict();
 
@@ -197,6 +207,40 @@ router.post(
             fieldErrors: {},
           },
         });
+      }
+
+      if (isDomainError(err, "not_found")) {
+        return res.status(404).json({ error: "not_found" });
+      }
+
+      next(err);
+    }
+  },
+);
+
+router.delete(
+  "/:slug/:subjectSlug/:token/replies/:postId",
+  requireAuth,
+  validateParams(replyDeleteParamsSchema),
+  async (req, res, next) => {
+    try {
+      const { slug: boardSlug, subjectSlug, token, postId } = req.validatedParams;
+      const actorUserId = req.session.userId;
+      await deleteReplyByPretty({ boardSlug, subjectSlug, token, postId, actorUserId });
+      res.status(204).end();
+    } catch (err) {
+      if (isDomainError(err, "validation_error")) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: [err.message],
+            fieldErrors: {},
+          },
+        });
+      }
+
+      if (isDomainError(err, "forbidden")) {
+        return res.status(403).json({ error: "forbidden" });
       }
 
       if (isDomainError(err, "not_found")) {

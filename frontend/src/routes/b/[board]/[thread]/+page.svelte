@@ -189,7 +189,7 @@
         {/if}
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
-      <pre class="post-body">{post.body}</pre>
+      <div class="post-body">{post.body}</div>
       {#if getEmbeddableLinks(post.body).length > 0}
         <div class="post-embeds">
           {#each getEmbeddableLinks(post.body) as embed}

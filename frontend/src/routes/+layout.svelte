@@ -242,5 +242,6 @@
     overflow-wrap: anywhere;
     word-break: break-word;
     max-width: 100%;
+    margin: 0;
   }
 </style>

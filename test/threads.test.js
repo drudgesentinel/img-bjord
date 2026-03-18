@@ -1,8 +1,11 @@
 import "dotenv/config";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { createUser, dbPing, dbReset, dbClose } from "./_db.js";
+import { getUploadDir, isLocalMediaStorage } from "../src/lib/mediaStorage.js";
 
 describe("threads", () => {
   const app = createApp();
@@ -88,6 +91,11 @@ describe("threads", () => {
     return userAgent;
   }
 
+  function toLocalUploadPath(mediaUrl) {
+    if (!mediaUrl?.startsWith("/api/uploads/")) return null;
+    return path.join(getUploadDir(), path.basename(mediaUrl));
+  }
+
   it("can view a thread by board + subjectSlug + token (posts ordered by post_number)", async () => {
     const { thread } = await createThread("Lifting Routine", "first post");
 
@@ -127,6 +135,81 @@ describe("threads", () => {
 
     expect(viewRes.status).toBe(200);
     expect(viewRes.body.posts.map((p) => p.post_number)).toEqual([1, 2, 3]);
+  });
+
+  it("user can delete own reply and hard delete its media", async () => {
+    const { thread } = await createThread("reply delete", "op");
+    const nonAdminAgent = await createApprovedNonAdminAgent("reply delete user pass");
+
+    const gifBytes = Buffer.from(
+      "47494638396101000100800000000000ffffff21f90401000000002c00000000010001000002024401003b",
+      "hex",
+    );
+
+    const replyRes = await nonAdminAgent
+      .post(`/api/boards/b/${thread.subject_slug}/${thread.token}/replies`)
+      .field("body", "my own media reply")
+      .attach("image", gifBytes, { filename: "tiny.gif", contentType: "image/gif" });
+
+    expect(replyRes.status).toBe(201);
+    const replyPostId = replyRes.body.post.id;
+    const replyMediaUrl = replyRes.body.post.media_url;
+
+    const localUploadPath = toLocalUploadPath(replyMediaUrl);
+    if (isLocalMediaStorage() && localUploadPath) {
+      await expect(fs.stat(localUploadPath)).resolves.toBeTruthy();
+    }
+
+    const del = await nonAdminAgent.delete(
+      `/api/boards/b/${thread.subject_slug}/${thread.token}/replies/${replyPostId}`,
+    );
+    expect(del.status).toBe(204);
+
+    const viewRes = await request(app).get(
+      `/api/boards/b/${thread.subject_slug}/${thread.token}`,
+    );
+    expect(viewRes.status).toBe(200);
+    expect(viewRes.body.posts.map((p) => p.post_number)).toEqual([1]);
+
+    if (isLocalMediaStorage() && localUploadPath) {
+      await expect(fs.stat(localUploadPath)).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  });
+
+  it("forbids deleting another user's reply", async () => {
+    const { thread } = await createThread("reply auth", "op");
+    const ownerAgent = await createApprovedNonAdminAgent("owner passphrase");
+    const otherAgent = await createApprovedNonAdminAgent("other passphrase");
+
+    const replyRes = await ownerAgent
+      .post(`/api/boards/b/${thread.subject_slug}/${thread.token}/replies`)
+      .set("content-type", "application/json")
+      .send({ body: "owner reply" });
+    expect(replyRes.status).toBe(201);
+
+    const del = await otherAgent.delete(
+      `/api/boards/b/${thread.subject_slug}/${thread.token}/replies/${replyRes.body.post.id}`,
+    );
+
+    expect(del.status).toBe(403);
+    expect(del.body.error).toBe("forbidden");
+  });
+
+  it("rejects deleting the original post through reply delete endpoint", async () => {
+    const { thread } = await createThread("op protected", "op");
+
+    const viewRes = await request(app).get(
+      `/api/boards/b/${thread.subject_slug}/${thread.token}`,
+    );
+    expect(viewRes.status).toBe(200);
+    const opPostId = viewRes.body.posts[0].id;
+
+    const del = await agent.delete(
+      `/api/boards/b/${thread.subject_slug}/${thread.token}/replies/${opPostId}`,
+    );
+
+    expect(del.status).toBe(400);
+    expect(del.body.error).toBe("validation_error");
   });
 
   it("returns 404 when thread not found (valid-looking route)", async () => {
