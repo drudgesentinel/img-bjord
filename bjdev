@@ -233,6 +233,25 @@ multi MAIN('admin', $cmd, $name?) {
             run-app-psql("SELECT id, username, is_approved, is_admin FROM users WHERE username = '{$escaped-new}';");
         }
 
+        when any <password-reset pr> {
+            my $target = $name // prompt "Username or user id to reset password: ";
+            my $new-password = prompt "New password: ", :echo(0);
+
+            $target = $target.trim;
+
+            if !$target || !$new-password {
+                note "Both username/user id and new password are required";
+                exit 1;
+            }
+
+            my $escaped-target = $target.subst("'", "''", :g);
+            my $escaped-password = $new-password.subst("'", "''", :g);
+
+            run-app-psql("UPDATE users SET password_hash = crypt('{$escaped-password}', gen_salt('bf')) WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';");
+
+            run-app-psql("SELECT id, username, is_approved, is_admin FROM users WHERE username = '{$escaped-target}' OR id::text = '{$escaped-target}';");
+        }
+
         when any <board makeboard> {
             my $slug = prompt "Board slug (e.g. 'b'): ";
             my $board-name = $name // prompt "Board name (e.g. 'Random'): ";
