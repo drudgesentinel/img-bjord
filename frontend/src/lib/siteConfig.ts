@@ -15,7 +15,7 @@ export type SiteConfig = {
 
 export const siteConfig: SiteConfig = {
   siteName: 'img-bjord',
-  faviconPath: '/favicon.ico',
+  faviconPath: '/favicon.png',
   siteLabelImagePath: '/krepostdotnettext.png',
   siteFontCssPath: '/fonts/site-vhs.css',
   siteFontTtfPath: null,
