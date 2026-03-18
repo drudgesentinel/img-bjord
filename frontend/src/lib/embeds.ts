@@ -7,6 +7,10 @@ export type EmbeddableLink = {
   title: string;
 };
 
+export type LinkifiedSegment =
+  | { type: 'text'; value: string }
+  | { type: 'link'; value: string; href: string };
+
 const MAX_EMBEDS_PER_POST = 3;
 const DIRECT_VIDEO_EXT_RE = /\.(mp4|webm|ogv)(?:$|[?#])/i;
 const URL_RE = /https?:\/\/[^\s<>()]+/gi;
@@ -138,4 +142,50 @@ export function getEmbeddableLinks(text: string): EmbeddableLink[] {
   }
 
   return embeds;
+}
+
+export function getLinkifiedSegments(text: string): LinkifiedSegment[] {
+  if (!text) return [{ type: 'text', value: '' }];
+
+  const segments: LinkifiedSegment[] = [];
+  let lastIndex = 0;
+  const matches = text.matchAll(URL_RE);
+
+  for (const match of matches) {
+    const full = match[0] ?? '';
+    const start = match.index ?? 0;
+    const cleaned = cleanCandidateUrl(full);
+    const cleanedLength = cleaned.length;
+
+    if (start > lastIndex) {
+      segments.push({ type: 'text', value: text.slice(lastIndex, start) });
+    }
+
+    const parsed = parseUrl(cleaned);
+    if (parsed) {
+      segments.push({
+        type: 'link',
+        value: cleaned,
+        href: parsed.toString(),
+      });
+    } else {
+      segments.push({ type: 'text', value: cleaned });
+    }
+
+    if (cleanedLength < full.length) {
+      segments.push({ type: 'text', value: full.slice(cleanedLength) });
+    }
+
+    lastIndex = start + full.length;
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', value: text.slice(lastIndex) });
+  }
+
+  if (segments.length === 0) {
+    return [{ type: 'text', value: text }];
+  }
+
+  return segments;
 }

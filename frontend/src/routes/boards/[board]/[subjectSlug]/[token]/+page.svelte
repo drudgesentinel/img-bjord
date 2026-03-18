@@ -3,7 +3,7 @@
   import { page } from '$app/state';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
-  import { getEmbeddableLinks } from '$lib/embeds';
+  import { getEmbeddableLinks, getLinkifiedSegments } from '$lib/embeds';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
 
   let { data } = $props<{
@@ -316,7 +316,15 @@
         {/if}
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
-      <div class="post-body">{post.body}</div>
+      <div class="post-body">
+        {#each getLinkifiedSegments(post.body) as segment, i (i)}
+          {#if segment.type === 'link'}
+            <a href={segment.href} target="_blank" rel="noopener noreferrer nofollow">{segment.value}</a>
+          {:else}
+            {segment.value}
+          {/if}
+        {/each}
+      </div>
       {#if getEmbeddableLinks(post.body).length > 0}
         <div class="post-embeds">
           {#each getEmbeddableLinks(post.body) as embed}
@@ -461,6 +469,12 @@
     height: auto;
     border-radius: 8px;
     background: #111;
+  }
+
+  .post-body a {
+    color: #1d4ed8;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .image-button {
