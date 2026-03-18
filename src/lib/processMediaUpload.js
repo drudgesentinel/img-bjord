@@ -82,11 +82,11 @@ export async function processMediaUpload(file) {
     }
 
     if (file.mimetype.startsWith("image/")) {
-      return processImageMedia(file);
+      return await processImageMedia(file);
     }
 
     if (file.mimetype in VIDEO_MIME_TO_EXTENSION) {
-      return processVideoMedia(file);
+      return await processVideoMedia(file);
     }
 
     throw new DomainError("validation_error", "Uploaded file must be an image, MP4, or WebM video");
