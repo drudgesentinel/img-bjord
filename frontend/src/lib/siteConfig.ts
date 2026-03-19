@@ -11,10 +11,11 @@ export type SiteConfig = {
   postFontFallback: string;
   logoPath: string | null;
   wallpaperPath: string | null;
+  siteUrl: string;
 };
 
 export const siteConfig: SiteConfig = {
-  siteName: 'img-bjord',
+  siteName: 'krepost.net',
   faviconPath: '/favicon.png',
   siteLabelImagePath: '/krepostdotnettext.png',
   siteFontCssPath: '/fonts/site-vhs.css',
@@ -25,5 +26,6 @@ export const siteConfig: SiteConfig = {
   postFontFamily: 'site-vhs',
   postFontFallback: 'Courier New, Courier, monospace',
   logoPath: '/krepostdotnetlogo.png',
-  wallpaperPath: null
+  wallpaperPath: null,
+  siteUrl: 'https://krepost.net'
 };
