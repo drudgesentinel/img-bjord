@@ -2,7 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
-  import { getEmbeddableLinks } from '$lib/embeds';
+  import { getEmbeddableLinks, toEmbed, parseUrl } from '$lib/embeds';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
 
   let { data } = $props<{
