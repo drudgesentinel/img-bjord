@@ -1,3 +1,16 @@
+<svelte:head>
+  <meta property="og:title" content={data.thread.subject ?? '(untitled)'} />
+  <meta property="og:description" content={data.posts[0]?.body ?? ''} />
+  <meta property="og:url" content={`https://krepost.net/boards/${data.board}/${data.thread.subject_slug}/${data.thread.token}`} />
+  {#if data.posts[0]?.image_url}
+    <meta property="og:image" content={data.posts[0].image_url} />
+    <meta name="twitter:image" content={data.posts[0].image_url} />
+  {/if}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={data.thread.subject ?? '(untitled)'} />
+  <meta name="twitter:description" content={data.posts[0]?.body ?? ''} />
+  <meta name="twitter:url" content={`https://krepost.net/boards/${data.board}/${data.thread.subject_slug}/${data.thread.token}`} />
+</svelte:head>
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
