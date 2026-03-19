@@ -1,4 +1,4 @@
-export type EmbedKind = 'youtube' | 'reddit' | 'streamable' | 'vimeo' | 'directVideo';
+export type EmbedKind = 'youtube' | 'reddit' | 'streamable' | 'directVideo';
 
 export type EmbeddableLink = {
   kind: EmbedKind;
@@ -84,21 +84,6 @@ function streamableEmbed(url: URL): EmbeddableLink | null {
   };
 }
 
-function vimeoEmbed(url: URL): EmbeddableLink | null {
-  const host = url.hostname.replace(/^www\./, '').toLowerCase();
-  if (host !== 'vimeo.com') return null;
-
-  const id = url.pathname.split('/').filter(Boolean)[0];
-  if (!id || !/^\d+$/.test(id)) return null;
-
-  return {
-    kind: 'vimeo',
-    originalUrl: url.toString(),
-    embedUrl: `https://player.vimeo.com/video/${encodeURIComponent(id)}`,
-    title: 'Vimeo embed'
-  };
-}
-
 function directVideoEmbed(url: URL): EmbeddableLink | null {
   if (!DIRECT_VIDEO_EXT_RE.test(url.toString())) return null;
 
@@ -115,33 +100,18 @@ function toEmbed(url: URL): EmbeddableLink | null {
     youtubeEmbed(url) ||
     redditEmbed(url) ||
     streamableEmbed(url) ||
-    vimeoEmbed(url) ||
     directVideoEmbed(url)
   );
 }
 
-export function getEmbeddableLinks(text: string): EmbeddableLink[] {
-  const matches = text.match(URL_RE);
-  if (!matches || matches.length === 0) return [];
+const allowedDomains = ['reddit.com', 'youtube.com', 'youtu.be', 'posttext.pl'];
 
-  const seen = new Set<string>();
-  const embeds: EmbeddableLink[] = [];
-
-  for (const match of matches) {
-    if (embeds.length >= MAX_EMBEDS_PER_POST) break;
-
-    const cleaned = cleanCandidateUrl(match);
-    if (seen.has(cleaned)) continue;
-    seen.add(cleaned);
-
-    const parsed = parseUrl(cleaned);
-    if (!parsed) continue;
-
-    const embed = toEmbed(parsed);
-    if (embed) embeds.push(embed);
-  }
-
-  return embeds;
+export function getEmbeddableLinks(text: string): string[] {
+  const urlRegex = /https?:\/\/[^\s]+/g;
+  const links = text.match(urlRegex) || [];
+  return links.filter(url =>
+    allowedDomains.some(domain => url.includes(domain))
+  );
 }
 
 export function getLinkifiedSegments(text: string): LinkifiedSegment[] {
