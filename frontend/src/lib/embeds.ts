@@ -94,8 +94,8 @@ function directVideoEmbed(url: URL): EmbeddableLink | null {
 }
 
 function posttextEmbed(url: URL): EmbeddableLink | null {
-  const host = url.hostname.toLowerCase();
-  if (host !== 'posttext.pl' && host !== 'www.posttext.pl') return null;
+  const host = url.hostname.replace(/^www\./, '').toLowerCase();
+  if (host !== 'posttext.pl') return null;
   return {
     kind: 'posttext',
     originalUrl: url.toString(),
