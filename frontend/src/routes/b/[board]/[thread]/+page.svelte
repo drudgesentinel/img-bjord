@@ -192,9 +192,18 @@
       <div class="post-body">{post.body}</div>
       {#if getEmbeddableLinks(post.body).length > 0}
         <div class="post-embeds">
-          {#each getEmbeddableLinks(post.body) as embed}
+          {#each getEmbeddableLinks(post.body)
+            .map(url => toEmbed(parseUrl(url)))
+            .filter(Boolean) as embed}
             {#if embed.kind === 'directVideo'}
               <video src={embed.embedUrl} controls preload="metadata"></video>
+            {:else if embed.kind === 'posttext'}
+              <div class="embed-card">
+                <a href={embed.originalUrl} target="_blank" rel="noopener noreferrer">
+                  <strong>{embed.title}</strong><br />
+                  <span>{embed.originalUrl}</span>
+                </a>
+              </div>
             {:else}
               <iframe
                 src={embed.embedUrl}
