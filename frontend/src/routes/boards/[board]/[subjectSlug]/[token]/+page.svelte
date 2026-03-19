@@ -242,7 +242,10 @@
 
 <p>
   <small>
-    token: {data.thread.token} · created: {new Date(data.thread.created_at).toLocaleString()}
+    {#if data.posts.length > 0}
+      bumped_by: {displayUsername(data.posts[data.posts.length - 1].author_username)} ·
+    {/if}
+    created: {new Date(data.thread.created_at).toLocaleString()}
   </small>
 </p>
 
