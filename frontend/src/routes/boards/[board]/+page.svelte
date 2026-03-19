@@ -10,6 +10,9 @@
     };
   }>();
 
+  let subject = $state('');
+  let body = $state('');
+
   function setMedia(file: File | null) {
     if (mediaPreviewUrl) {
       URL.revokeObjectURL(mediaPreviewUrl);
