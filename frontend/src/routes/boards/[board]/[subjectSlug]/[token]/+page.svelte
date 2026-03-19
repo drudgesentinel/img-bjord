@@ -1,15 +1,21 @@
 <svelte:head>
+  <meta property="og:type" content="article" />
   <meta property="og:title" content={data.thread.subject ?? '(untitled)'} />
-  <meta property="og:description" content={data.posts[0]?.body ?? ''} />
-  <meta property="og:url" content={`https://krepost.net/boards/${data.board}/${data.thread.subject_slug}/${data.thread.token}`} />
-  {#if data.posts[0]?.image_url}
-    <meta property="og:image" content={data.posts[0].image_url} />
-    <meta name="twitter:image" content={data.posts[0].image_url} />
-  {/if}
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta property="og:description" content={data.thread.body ? data.thread.body.slice(0, 200) : ''} />
+  <meta property="og:url" content={'https://krepost.net/boards/' + data.thread.board_slug + '/' + data.thread.subject_slug + '/' + data.thread.token} />
+  <meta property="og:site_name" content="Krepost" />
+  <meta property="og:image" content="https://krepost.net/static/logo.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="1200" />
+  <meta property="og:image:alt" content="Krepost logo" />
+
   <meta name="twitter:title" content={data.thread.subject ?? '(untitled)'} />
-  <meta name="twitter:description" content={data.posts[0]?.body ?? ''} />
-  <meta name="twitter:url" content={`https://krepost.net/boards/${data.board}/${data.thread.subject_slug}/${data.thread.token}`} />
+  <meta name="twitter:description" content={data.thread.body ? data.thread.body.slice(0, 200) : ''} />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@krepost" />
+  <meta name="twitter:image" content="https://krepost.net/static/logo.png" />
+  <meta name="twitter:image:alt" content="Krepost logo" />
 </svelte:head>
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';

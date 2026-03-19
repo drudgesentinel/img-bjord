@@ -178,17 +178,15 @@
   </button>
 {/if}
 
-<div class="create-account-form">
-  <label class="account-field">
-    <span>Password</span>
-    <input type="password" bind:value={registerPassword} minlength="8" maxlength="200" />
-  </label>
-  <label class="account-field">
-    <span>Activation message</span>
-    <input bind:value={registerActivationCode} maxlength="500" />
-  </label>
-</div>
-<div class="account-actions">
+<label>
+  Password
+  <input type="password" bind:value={registerPassword} minlength="8" maxlength="200" />
+</label>
+<label>
+  Activation message
+  <input bind:value={registerActivationCode} maxlength="500" />
+</label>
+<div>
   <button
     type="button"
     on:click={register}
@@ -234,32 +232,6 @@
 
   .reverse-button {
     font-size: 0.8rem;
-  }
-
-  .create-account-form {
-    display: grid;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-    max-width: 32rem;
-  }
-
-  .account-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .account-field input {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .account-actions {
-    margin-top: 0.75rem;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem;
   }
 
   .modal-backdrop {

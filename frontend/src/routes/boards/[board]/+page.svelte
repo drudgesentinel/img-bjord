@@ -10,14 +10,6 @@
     };
   }>();
 
-  let subject = $state('');
-  let body = $state('');
-  let creating = $state(false);
-  let error = $state('');
-  let mediaFile = $state<File | null>(null);
-  let mediaPreviewUrl = $state('');
-  let mediaPreviewIsVideo = $state(false);
-
   function setMedia(file: File | null) {
     if (mediaPreviewUrl) {
       URL.revokeObjectURL(mediaPreviewUrl);
@@ -201,3 +193,23 @@
     </ul>
   {/if}
 </section>
+
+<svelte:head>
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={data.board + ' Board'} />
+  <meta property="og:description" content={'Threads and posts for the ' + data.board + ' board.'} />
+  <meta property="og:url" content={'https://krepost.net/boards/' + data.board} />
+  <meta property="og:site_name" content="Krepost" />
+  <meta property="og:image" content="https://krepost.net/static/logo.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="1200" />
+  <meta property="og:image:alt" content="Krepost logo" />
+
+  <meta name="twitter:title" content={data.board + ' Board'} />
+  <meta name="twitter:description" content={'Threads and posts for the ' + data.board + ' board.'} />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@krepost" />
+  <meta name="twitter:image" content="https://krepost.net/static/logo.png" />
+  <meta name="twitter:image:alt" content="Krepost logo" />
+</svelte:head>
