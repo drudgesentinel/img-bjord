@@ -17,12 +17,18 @@
   <meta name="twitter:image" content="https://krepost.net/static/logo.png" />
   <meta name="twitter:image:alt" content="Krepost logo" />
 </svelte:head>
+
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
-  import { getEmbeddableLinks, getLinkifiedSegments } from '$lib/embeds';
+  import {
+    getLinkifiedSegments,
+    parseUrl,
+    toEmbed,
+    type EmbeddableLink
+  } from '$lib/embeds';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
 
   let { data } = $props<{
@@ -48,8 +54,44 @@
 
   const MAX_MEDIA_UPLOAD_BYTES = 100 * 1024 * 1024;
   const ALLOWED_MEDIA_TYPES = new Set(['video/mp4', 'video/webm']);
+  const MAX_EMBEDS_PER_POST = 3;
+  const URL_RE = /https?:\/\/[^\s<>()]+/gi;
+
   const currentUserIsAdmin = $derived(Boolean(page.data.user?.is_admin));
   const currentUserId = $derived(page.data.user?.id ?? null);
+
+  function cleanCandidateUrl(raw: string): string {
+    return raw.replace(/[),.;!?]+$/g, '');
+  }
+
+  function getPostEmbeds(text: string): EmbeddableLink[] {
+    const matches = text.match(URL_RE) || [];
+    const embeds: EmbeddableLink[] = [];
+
+    for (const raw of matches) {
+      const cleaned = cleanCandidateUrl(raw);
+      const parsed = parseUrl(cleaned);
+      if (!parsed) continue;
+
+      const embed = toEmbed(parsed);
+      if (!embed) continue;
+
+      embeds.push(embed);
+
+      if (embeds.length >= MAX_EMBEDS_PER_POST) {
+        break;
+      }
+    }
+
+    return embeds;
+  }
+
+  function requireEmbedUrl(embed: EmbeddableLink): string {
+    if (!embed.embedUrl) {
+      throw new Error(`Missing embedUrl for embed kind "${embed.kind}"`);
+    }
+    return embed.embedUrl;
+  }
 
   function setMedia(file: File | null) {
     if (mediaPreviewUrl) {
@@ -274,6 +316,8 @@
   <h2>Posts</h2>
 
   {#each data.posts as post}
+    {@const embeds = getPostEmbeds(post.body)}
+
     <article class:reply={post.post_number > 1} id={`post-${post.post_number}`}>
       <p>
         <a href={`#post-${post.post_number}`}><strong>#{post.post_number}</strong></a>
@@ -338,6 +382,7 @@
         {/if}
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
+
       <div class="post-body">
         {#each getLinkifiedSegments(post.body) as segment, i (i)}
           {#if segment.type === 'link'}
@@ -347,14 +392,22 @@
           {/if}
         {/each}
       </div>
-      {#if getEmbeddableLinks(post.body).length > 0}
+
+      {#if embeds.length > 0}
         <div class="post-embeds">
-          {#each getEmbeddableLinks(post.body) as embed}
-            {#if embed.kind === 'directVideo'}
-              <video src={embed.embedUrl} controls preload="metadata"></video>
+          {#each embeds as embed}
+            {#if embed.renderAs === 'video'}
+              <video src={requireEmbedUrl(embed)} controls preload="metadata"></video>
+            {:else if embed.renderAs === 'card'}
+              <div class="embed-card">
+                <a href={embed.originalUrl} target="_blank" rel="noopener noreferrer">
+                  <strong>{embed.title}</strong><br />
+                  <span>{embed.originalUrl}</span>
+                </a>
+              </div>
             {:else}
               <iframe
-                src={embed.embedUrl}
+                src={requireEmbedUrl(embed)}
                 title={embed.title}
                 loading="lazy"
                 referrerpolicy="strict-origin-when-cross-origin"
@@ -365,6 +418,7 @@
           {/each}
         </div>
       {/if}
+
       {#if post.media_url && post.media_type === 'video'}
         <figure class="post-image">
           <video
@@ -395,6 +449,7 @@
           </button>
         </figure>
       {/if}
+
       <hr />
     </article>
   {/each}
@@ -471,6 +526,26 @@
     border: 0;
     border-radius: 8px;
     background: #111;
+  }
+
+  .embed-card {
+    width: min(100%, 560px);
+    max-width: 560px;
+    border: 1px solid #d7d7d7;
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: #fafafa;
+  }
+
+  .embed-card a {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+    overflow-wrap: anywhere;
+  }
+
+  .embed-card a:hover {
+    text-decoration: underline;
   }
 
   .post-image img {

@@ -2,7 +2,11 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
-  import { getEmbeddableLinks, toEmbed, parseUrl } from '$lib/embeds';
+  import {
+    parseUrl,
+    toEmbed,
+    type EmbeddableLink
+  } from '$lib/embeds';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
 
   let { data } = $props<{
@@ -22,6 +26,42 @@
   let expandedImageUrl = $state<string | null>(null);
   let imageFile = $state<File | null>(null);
   let imagePreviewUrl = $state('');
+
+  const MAX_EMBEDS_PER_POST = 3;
+  const URL_RE = /https?:\/\/[^\s<>()]+/gi;
+
+  function cleanCandidateUrl(raw: string): string {
+    return raw.replace(/[),.;!?]+$/g, '');
+  }
+
+  function getPostEmbeds(text: string): EmbeddableLink[] {
+    const matches = text.match(URL_RE) || [];
+    const embeds: EmbeddableLink[] = [];
+
+    for (const raw of matches) {
+      const cleaned = cleanCandidateUrl(raw);
+      const parsed = parseUrl(cleaned);
+      if (!parsed) continue;
+
+      const embed = toEmbed(parsed);
+      if (!embed) continue;
+
+      embeds.push(embed);
+
+      if (embeds.length >= MAX_EMBEDS_PER_POST) {
+        break;
+      }
+    }
+
+    return embeds;
+  }
+
+  function requireEmbedUrl(embed: EmbeddableLink): string {
+    if (!embed.embedUrl) {
+      throw new Error(`Missing embedUrl for embed kind "${embed.kind}"`);
+    }
+    return embed.embedUrl;
+  }
 
   function setImage(file: File | null) {
     if (imagePreviewUrl) {
@@ -44,7 +84,9 @@
   function handleBodyPaste(event: ClipboardEvent) {
     if (!event.clipboardData) return;
 
-    const imageItem = [...event.clipboardData.items].find((item) => item.type.startsWith('image/'));
+    const imageItem = [...event.clipboardData.items].find((item) =>
+      item.type.startsWith('image/')
+    );
     if (!imageItem) return;
 
     const file = imageItem.getAsFile();
@@ -81,9 +123,13 @@
     error = '';
 
     try {
-      const res = await csrfFetch(fetch, `/api/threads/${data.threadId}?key=${encodeURIComponent(key.trim())}`, {
-        method: 'DELETE'
-      });
+      const res = await csrfFetch(
+        fetch,
+        `/api/threads/${data.threadId}?key=${encodeURIComponent(key.trim())}`,
+        {
+          method: 'DELETE'
+        }
+      );
 
       if (!res.ok) {
         const details = await res.text();
@@ -104,6 +150,7 @@
       error = 'Body or image is required';
       return;
     }
+
     replying = true;
 
     try {
@@ -150,6 +197,8 @@
   <h2>Posts</h2>
 
   {#each data.posts as post}
+    {@const embeds = getPostEmbeds(post.body)}
+
     <article class:reply={post.post_number > 1}>
       <p>
         <strong>#{post.post_number}</strong>
@@ -159,6 +208,7 @@
             <span class="admin-icon" aria-label="admin" title="admin">♠</span>
           {/if}
         </strong>
+
         {#if post.post_number === 1}
           <span class="op-menu">
             <button
@@ -171,6 +221,7 @@
             >
               ⋯
             </button>
+
             {#if opMenuOpen}
               <span class="op-menu-panel">
                 <button type="button" on:click={deleteThread} disabled={deleting || replying}>
@@ -180,6 +231,7 @@
             {/if}
           </span>
         {/if}
+
         {#if post.author_tags && post.author_tags.length > 0}
           <span class="post-tags">
             {#each post.author_tags as tag}
@@ -187,17 +239,18 @@
             {/each}
           </span>
         {/if}
+
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
+
       <div class="post-body">{post.body}</div>
-      {#if getEmbeddableLinks(post.body).length > 0}
+
+      {#if embeds.length > 0}
         <div class="post-embeds">
-          {#each getEmbeddableLinks(post.body)
-            .map(url => toEmbed(parseUrl(url)))
-            .filter(Boolean) as embed}
-            {#if embed.kind === 'directVideo'}
-              <video src={embed.embedUrl} controls preload="metadata"></video>
-            {:else if embed.kind === 'posttext'}
+          {#each embeds as embed}
+            {#if embed.renderAs === 'video'}
+              <video src={requireEmbedUrl(embed)} controls preload="metadata"></video>
+            {:else if embed.renderAs === 'card'}
               <div class="embed-card">
                 <a href={embed.originalUrl} target="_blank" rel="noopener noreferrer">
                   <strong>{embed.title}</strong><br />
@@ -206,7 +259,7 @@
               </div>
             {:else}
               <iframe
-                src={embed.embedUrl}
+                src={requireEmbedUrl(embed)}
                 title={embed.title}
                 loading="lazy"
                 referrerpolicy="strict-origin-when-cross-origin"
@@ -217,6 +270,7 @@
           {/each}
         </div>
       {/if}
+
       {#if post.image_url}
         <figure class="post-image">
           <button type="button" class="image-button" on:click={() => openImage(post.image_url!)}>
@@ -231,6 +285,7 @@
           </button>
         </figure>
       {/if}
+
       <hr />
     </article>
   {/each}
@@ -247,7 +302,13 @@
 
   <label>
     Body
-    <textarea class="post-editor" bind:value={body} maxlength="5000" rows="8" on:paste={handleBodyPaste}></textarea>
+    <textarea
+      class="post-editor"
+      bind:value={body}
+      maxlength="5000"
+      rows="8"
+      on:paste={handleBodyPaste}
+    ></textarea>
   </label>
 
   <div>
@@ -260,7 +321,11 @@
 
   {#if imagePreviewUrl}
     <div>
-      <img src={imagePreviewUrl} alt="Selected image preview" style="max-width: 320px; max-height: 320px;" />
+      <img
+        src={imagePreviewUrl}
+        alt="Selected image preview"
+        style="max-width: 320px; max-height: 320px;"
+      />
       <div>
         <button type="button" on:click={clearImage} disabled={replying}>Remove image</button>
       </div>
@@ -303,6 +368,26 @@
     border: 0;
     border-radius: 8px;
     background: #111;
+  }
+
+  .embed-card {
+    width: min(100%, 560px);
+    max-width: 560px;
+    border: 1px solid #d7d7d7;
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: #fafafa;
+  }
+
+  .embed-card a {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+    overflow-wrap: anywhere;
+  }
+
+  .embed-card a:hover {
+    text-decoration: underline;
   }
 
   .post-image img {

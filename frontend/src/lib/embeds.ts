@@ -1,10 +1,12 @@
 export type EmbedKind = 'youtube' | 'reddit' | 'streamable' | 'directVideo' | 'posttext';
+export type EmbedRenderAs = 'iframe' | 'video' | 'card';
 
 export type EmbeddableLink = {
   kind: EmbedKind;
+  renderAs: EmbedRenderAs;
   originalUrl: string;
-  embedUrl: string;
   title: string;
+  embedUrl?: string;
 };
 
 export type LinkifiedSegment =
@@ -47,6 +49,7 @@ function youtubeEmbed(url: URL): EmbeddableLink | null {
 
   return {
     kind: 'youtube',
+    renderAs: 'iframe',
     originalUrl: url.toString(),
     embedUrl: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}`,
     title: 'YouTube embed'
@@ -61,6 +64,7 @@ function redditEmbed(url: URL): EmbeddableLink | null {
 
   return {
     kind: 'reddit',
+    renderAs: 'iframe',
     originalUrl: url.toString(),
     embedUrl: `https://www.redditmedia.com${url.pathname}?ref_source=embed&ref=share&embed=true`,
     title: 'Reddit embed'
@@ -76,6 +80,7 @@ function streamableEmbed(url: URL): EmbeddableLink | null {
 
   return {
     kind: 'streamable',
+    renderAs: 'iframe',
     originalUrl: url.toString(),
     embedUrl: `https://streamable.com/e/${encodeURIComponent(id)}`,
     title: 'Streamable embed'
@@ -87,6 +92,7 @@ function directVideoEmbed(url: URL): EmbeddableLink | null {
 
   return {
     kind: 'directVideo',
+    renderAs: 'video',
     originalUrl: url.toString(),
     embedUrl: url.toString(),
     title: 'Video embed'
@@ -96,10 +102,11 @@ function directVideoEmbed(url: URL): EmbeddableLink | null {
 function posttextEmbed(url: URL): EmbeddableLink | null {
   const host = url.hostname.replace(/^www\./, '').toLowerCase();
   if (host !== 'posttext.pl') return null;
+
   return {
     kind: 'posttext',
+    renderAs: 'card',
     originalUrl: url.toString(),
-    embedUrl: url.toString(),
     title: 'Posttext link'
   };
 }
@@ -119,8 +126,8 @@ const allowedDomains = ['reddit.com', 'youtube.com', 'youtu.be', 'posttext.pl'];
 export function getEmbeddableLinks(text: string): string[] {
   const urlRegex = /https?:\/\/[^\s]+/g;
   const links = text.match(urlRegex) || [];
-  return links.filter(url =>
-    allowedDomains.some(domain => url.includes(domain))
+  return links.filter((url) =>
+    allowedDomains.some((domain) => url.includes(domain))
   );
 }
 
@@ -146,7 +153,7 @@ export function getLinkifiedSegments(text: string): LinkifiedSegment[] {
       segments.push({
         type: 'link',
         value: cleaned,
-        href: parsed.toString(),
+        href: parsed.toString()
       });
     } else {
       segments.push({ type: 'text', value: cleaned });
