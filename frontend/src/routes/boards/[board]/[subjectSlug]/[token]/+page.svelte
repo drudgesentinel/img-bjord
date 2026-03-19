@@ -268,7 +268,7 @@
   <h2>Posts</h2>
 
   {#each data.posts as post}
-    <article class:reply={post.post_number > 1}>
+    <article class:reply={post.post_number > 1} id={`post-${post.post_number}`}>
       <p>
         <strong>#{post.post_number}</strong>
         <strong class="author-name">
