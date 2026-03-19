@@ -270,7 +270,7 @@
   {#each data.posts as post}
     <article class:reply={post.post_number > 1} id={`post-${post.post_number}`}>
       <p>
-        <strong>#{post.post_number}</strong>
+        <a href={`#post-${post.post_number}`}><strong>#{post.post_number}</strong></a>
         <strong class="author-name">
           {displayUsername(post.author_username)}
           {#if post.author_is_admin}
