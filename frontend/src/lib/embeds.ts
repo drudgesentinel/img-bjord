@@ -1,4 +1,4 @@
-export type EmbedKind = 'youtube' | 'reddit' | 'streamable' | 'directVideo';
+export type EmbedKind = 'youtube' | 'reddit' | 'streamable' | 'directVideo' | 'posttext';
 
 export type EmbeddableLink = {
   kind: EmbedKind;
@@ -15,18 +15,16 @@ const MAX_EMBEDS_PER_POST = 3;
 const DIRECT_VIDEO_EXT_RE = /\.(mp4|webm|ogv)(?:$|[?#])/i;
 const URL_RE = /https?:\/\/[^\s<>()]+/gi;
 
-function cleanCandidateUrl(raw: string): string {
-  return raw.replace(/[),.;!?]+$/g, '');
-}
-
-function parseUrl(raw: string): URL | null {
+export function parseUrl(url: string): URL | null {
   try {
-    const url = new URL(raw);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-    return url;
+    return new URL(url);
   } catch {
     return null;
   }
+}
+
+function cleanCandidateUrl(raw: string): string {
+  return raw.replace(/[),.;!?]+$/g, '');
 }
 
 function youtubeEmbed(url: URL): EmbeddableLink | null {
@@ -95,12 +93,24 @@ function directVideoEmbed(url: URL): EmbeddableLink | null {
   };
 }
 
-function toEmbed(url: URL): EmbeddableLink | null {
+function posttextEmbed(url: URL): EmbeddableLink | null {
+  const host = url.hostname.replace(/^www\./, '').toLowerCase();
+  if (host !== 'posttext.pl') return null;
+  return {
+    kind: 'posttext',
+    originalUrl: url.toString(),
+    embedUrl: url.toString(),
+    title: 'Posttext link'
+  };
+}
+
+export function toEmbed(url: URL): EmbeddableLink | null {
   return (
     youtubeEmbed(url) ||
     redditEmbed(url) ||
     streamableEmbed(url) ||
-    directVideoEmbed(url)
+    directVideoEmbed(url) ||
+    posttextEmbed(url)
   );
 }
 
