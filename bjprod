@@ -1,7 +1,7 @@
 #!/usr/bin/env raku
 
 my constant $DEFAULT_ENV_FILE = '/etc/bjord/bjord.env';
-my constant $SCHEMA_PATH = $?FILE.IO.absolute.dirname.add('db/schema.sql').Str;
+my constant $DEFAULT_APP_DIR  = '/opt/img-bjord/';
 
 sub run-or-die(*@cmd) {
     my $proc = run |@cmd;
@@ -12,7 +12,7 @@ sub run-or-die(*@cmd) {
     }
 }
 
-sub parse-env-line(Str $line, Int $line-number, Str $path --> Pair | Nil) {
+sub parse-env-line(Str $line, Int $line-number, Str $path) {
     my $trimmed = $line.trim;
     return Nil if $trimmed eq '' || $trimmed.starts-with('#');
 
@@ -69,21 +69,26 @@ sub require-database-url(Str $env-file --> Str) {
     $url.trim;
 }
 
-sub apply-schema(Str $database-url) {
-    my $schema = $SCHEMA_PATH.IO;
+sub schema-path(Str $app-dir --> Str) {
+    $app-dir.IO.add('db/schema.sql').absolute.Str;
+}
+
+sub apply-schema(Str $database-url, Str $app-dir) {
+    my $schema-path = schema-path($app-dir);
+    my $schema = $schema-path.IO;
     if !$schema.e {
-        note "Schema file not found: {$SCHEMA_PATH}";
+        note "Schema file not found: {$schema-path}";
         exit 1;
     }
 
-    say "Applying schema from {$SCHEMA_PATH}";
-    run-or-die <psql>, $database-url, < -v ON_ERROR_STOP=1 -f >, $SCHEMA_PATH;
+    say "Applying schema from {$schema-path}";
+    run-or-die <psql>, $database-url, < -v ON_ERROR_STOP=1 -f >, $schema-path;
     say "Schema migration complete.";
 }
 
-multi MAIN('migrate', Str :$env-file = $DEFAULT_ENV_FILE) {
+multi MAIN('migrate', Str :$env-file = $DEFAULT_ENV_FILE, Str :$app-dir = $DEFAULT_APP_DIR) {
     my $database-url = require-database-url($env-file);
-    apply-schema($database-url);
+    apply-schema($database-url, $app-dir);
 }
 
 multi MAIN('show-url', Str :$env-file = $DEFAULT_ENV_FILE) {
@@ -92,7 +97,7 @@ multi MAIN('show-url', Str :$env-file = $DEFAULT_ENV_FILE) {
 
 multi MAIN('help') {
     say 'Usage:';
-    say '  ./bjprod migrate [--env-file=/etc/bjord/bjord.env]';
+    say '  ./bjprod migrate [--env-file=/etc/bjord/bjord.env] [--app-dir=/opt/img-bjord/]';
     say '  ./bjprod show-url [--env-file=/etc/bjord/bjord.env]';
 }
 
