@@ -1,6 +1,6 @@
 export async function listBoards(db) {
   const r = await db.query(
-    `select slug, name, visible_to_tags, created_at
+    `select slug, name, visible_to_tags, announcement, created_at
      from boards
      order by slug asc`,
   );
@@ -15,10 +15,22 @@ export async function existsBoardBySlug(db, boardSlug) {
 
 export async function findBoardBySlug(db, boardSlug) {
   const r = await db.query(
-    `select slug, name, visible_to_tags, created_at
+    `select slug, name, visible_to_tags, announcement, created_at
      from boards
      where slug = $1`,
     [boardSlug],
+  );
+
+  return r.rows[0] ?? null;
+}
+
+export async function updateBoardAnnouncementBySlug(db, { slug, announcement }) {
+  const r = await db.query(
+    `update boards
+     set announcement = $2
+     where slug = $1
+     returning slug, name, visible_to_tags, announcement, created_at`,
+    [slug, announcement],
   );
 
   return r.rows[0] ?? null;

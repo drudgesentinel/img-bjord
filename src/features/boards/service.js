@@ -108,6 +108,42 @@ export async function listThreadsForViewer({ boardSlug, viewerUserId = null, lim
   return repo.listThreadsByBoard(pool, { boardSlug, limit });
 }
 
+export async function getBoardAnnouncementForViewer({ boardSlug, viewerUserId = null }) {
+  const [board, viewer] = await Promise.all([repo.findBoardBySlug(pool, boardSlug), getViewerById(viewerUserId)]);
+
+  if (!board || !canViewerAccessBoard(board, viewer)) {
+    throw new DomainError("board_not_found");
+  }
+
+  return {
+    slug: board.slug,
+    announcement: board.announcement ?? "",
+  };
+}
+
+export async function setBoardAnnouncement({ boardSlug, announcement }) {
+  const normalizedSlug = String(boardSlug ?? "").trim().toLowerCase();
+  const normalizedAnnouncement = String(announcement ?? "").trim();
+
+  if (normalizedAnnouncement.length > 5000) {
+    throw new DomainError("validation_error", "announcement must be at most 5000 chars");
+  }
+
+  const updated = await repo.updateBoardAnnouncementBySlug(pool, {
+    slug: normalizedSlug,
+    announcement: normalizedAnnouncement,
+  });
+
+  if (!updated) {
+    throw new DomainError("board_not_found");
+  }
+
+  return {
+    slug: updated.slug,
+    announcement: updated.announcement ?? "",
+  };
+}
+
 export async function getThreadDetailByPretty({ boardSlug, subjectSlug, token, viewerUserId = null }) {
   const [thread, board, viewer] = await Promise.all([
     repo.findThreadByPretty(pool, {

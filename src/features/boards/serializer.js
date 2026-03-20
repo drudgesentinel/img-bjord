@@ -3,6 +3,7 @@ export function serializeBoard(board) {
     slug: board.slug,
     name: board.name,
     visible_to_tags: board.visible_to_tags ?? [],
+    announcement: board.announcement ?? "",
     created_at: board.created_at,
   };
 }

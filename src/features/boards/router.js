@@ -9,6 +9,8 @@ import { processMediaUpload } from "../../lib/processMediaUpload.js";
 import {
   listBoards,
   createThread,
+  getBoardAnnouncementForViewer,
+  setBoardAnnouncement,
   listThreadsForViewer,
   getThreadDetailByPretty,
   createReplyByPretty,
@@ -28,6 +30,12 @@ const router = Router();
 const boardParamsSchema = z
   .object({
     slug: z.string().trim().regex(/^[a-z0-9]{1,20}$/),
+  })
+  .strict();
+
+const announcementBodySchema = z
+  .object({
+    announcement: z.string().trim().max(5000).default(""),
   })
   .strict();
 
@@ -141,6 +149,54 @@ router.get(
       });
       res.json(serializeThreadListResponse(threads));
     } catch (err) {
+      if (isDomainError(err, "board_not_found")) {
+        return res.status(404).json({ error: "board_not_found" });
+      }
+
+      next(err);
+    }
+  },
+);
+
+router.get("/:slug/announcement", validateParams(boardParamsSchema), async (req, res, next) => {
+  try {
+    const { slug: boardSlug } = req.validatedParams;
+    const result = await getBoardAnnouncementForViewer({
+      boardSlug,
+      viewerUserId: req.session?.userId ?? null,
+    });
+    res.json(result);
+  } catch (err) {
+    if (isDomainError(err, "board_not_found")) {
+      return res.status(404).json({ error: "board_not_found" });
+    }
+
+    next(err);
+  }
+});
+
+router.put(
+  "/:slug/announcement",
+  requireAdmin,
+  validateParams(boardParamsSchema),
+  validateBody(announcementBodySchema),
+  async (req, res, next) => {
+    try {
+      const { slug: boardSlug } = req.validatedParams;
+      const { announcement } = req.validatedBody;
+      const result = await setBoardAnnouncement({ boardSlug, announcement });
+      res.json(result);
+    } catch (err) {
+      if (isDomainError(err, "validation_error")) {
+        return res.status(400).json({
+          error: "validation_error",
+          details: {
+            formErrors: [err.message],
+            fieldErrors: {},
+          },
+        });
+      }
+
       if (isDomainError(err, "board_not_found")) {
         return res.status(404).json({ error: "board_not_found" });
       }
