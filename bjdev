@@ -288,3 +288,12 @@ multi MAIN('admin', $cmd, $name?) {
         }
     }
 }
+multi MAIN('app', $cmd) {
+    given $cmd{
+        when any <start> {
+            run-or-die("nvm use --lts");
+            run-or-die("npm run dev");
+            run-or-die("cd frontend && npm run dev");
+        }
+    }
+}
