@@ -31,6 +31,11 @@
   } from '$lib/embeds';
   import type { Post, ReplyResponse, Thread } from '$lib/types';
 
+  type PostBodySegment =
+    | { type: 'text'; value: string }
+    | { type: 'url'; value: string; href: string }
+    | { type: 'reply_ref'; value: string; postNumber: number };
+
   let { data } = $props<{
     data: {
       board: string;
@@ -51,6 +56,7 @@
   let mediaFile = $state<File | null>(null);
   let mediaPreviewUrl = $state('');
   let mediaPreviewIsVideo = $state(false);
+  let replyEditor: HTMLTextAreaElement | null = null;
 
   const MAX_MEDIA_UPLOAD_BYTES = 100 * 1024 * 1024;
   const ALLOWED_MEDIA_TYPES = new Set(['video/mp4', 'video/webm']);
@@ -59,6 +65,7 @@
 
   const currentUserIsAdmin = $derived(Boolean(page.data.user?.is_admin));
   const currentUserId = $derived(page.data.user?.id ?? null);
+  const postsByNumber = $derived(new Map(data.posts.map((post) => [post.post_number, post])));
 
   function cleanCandidateUrl(raw: string): string {
     return raw.replace(/[),.;!?]+$/g, '');
@@ -104,6 +111,23 @@
     if (file) {
       mediaPreviewUrl = URL.createObjectURL(file);
     }
+  }
+
+  function startReplyToPost(postNumber: number) {
+    opMenuOpen = false;
+
+    const marker = `>>${postNumber}`;
+    const markerPattern = new RegExp(`(^|\\n)${marker}(\\n|$)`);
+    if (!markerPattern.test(body)) {
+      body = body.trim().length > 0 ? `${body}\n${marker}` : `${marker}\n`;
+    }
+
+    queueMicrotask(() => {
+      replyEditor?.focus();
+      const end = replyEditor?.value.length ?? 0;
+      replyEditor?.setSelectionRange(end, end);
+      replyEditor?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }
 
   function handleMediaChange(event: Event) {
@@ -166,6 +190,90 @@
   function displayUsername(username?: string | null) {
     if (!username) return 'anonymous';
     return username.replace(/_\d+$/, '');
+  }
+
+  function appendLinkifiedSegments(text: string, into: PostBodySegment[]) {
+    const linkified = getLinkifiedSegments(text);
+    for (const segment of linkified) {
+      if (segment.type === 'link') {
+        into.push({
+          type: 'url',
+          value: segment.value,
+          href: segment.href
+        });
+        continue;
+      }
+
+      into.push({
+        type: 'text',
+        value: segment.value
+      });
+    }
+  }
+
+  function getPostBodySegments(text: string): PostBodySegment[] {
+    if (!text.length) return [];
+
+    const segments: PostBodySegment[] = [];
+    const replyRefRegex = />>(\d+)/g;
+    let cursor = 0;
+
+    for (const match of text.matchAll(replyRefRegex)) {
+      const index = match.index ?? -1;
+      if (index < 0) continue;
+
+      appendLinkifiedSegments(text.slice(cursor, index), segments);
+
+      segments.push({
+        type: 'reply_ref',
+        value: match[0],
+        postNumber: Number(match[1])
+      });
+
+      cursor = index + match[0].length;
+    }
+
+    appendLinkifiedSegments(text.slice(cursor), segments);
+    return segments;
+  }
+
+  function getPostPreviewText(post: Post): string {
+    const compact = post.body.replace(/\s+/g, ' ').trim();
+    if (!compact.length) return '';
+    return compact.length > 180 ? `${compact.slice(0, 177)}...` : compact;
+  }
+
+  function getDirectReplyTarget(post: Post): Post | null {
+    if (post.post_number <= 1) return null;
+    const match = post.body.match(/>>(\d+)/);
+    if (!match) return null;
+
+    const targetNumber = Number(match[1]);
+    if (!Number.isFinite(targetNumber) || targetNumber <= 0 || targetNumber === post.post_number) {
+      return null;
+    }
+
+    return postsByNumber.get(targetNumber) ?? null;
+  }
+
+  function getReplyIndentLevel(post: Post): number {
+    if (post.post_number <= 1) return 0;
+
+    let level = 1;
+    const seen = new Set<number>([post.post_number]);
+    let cursor: Post | null = post;
+
+    while (cursor) {
+      const target = getDirectReplyTarget(cursor);
+      if (!target || target.post_number <= 1) break;
+      if (seen.has(target.post_number)) break;
+
+      seen.add(target.post_number);
+      level += 1;
+      cursor = target;
+    }
+
+    return level;
   }
 
   async function deleteThread() {
@@ -317,8 +425,13 @@
 
   {#each data.posts as post}
     {@const embeds = getPostEmbeds(post.body)}
+    {@const replyIndentLevel = getReplyIndentLevel(post)}
 
-    <article class:reply={post.post_number > 1} id={`post-${post.post_number}`}>
+    <article
+      class:reply={post.post_number > 1}
+      id={`post-${post.post_number}`}
+      style={`--reply-level: ${replyIndentLevel};`}
+    >
       <p>
         <a href={`#post-${post.post_number}`}><strong>#{post.post_number}</strong></a>
         <strong class="author-name">
@@ -380,13 +493,64 @@
             {/if}
           </span>
         {/if}
+        <button
+          type="button"
+          class="op-reply-button"
+          aria-label={`Reply to post #${post.post_number}`}
+          title={`Reply to post #${post.post_number}`}
+          on:click={() => startReplyToPost(post.post_number)}
+          disabled={deleting || replying}
+        >
+          ↩
+        </button>
         <small> · {new Date(post.created_at).toLocaleString()}</small>
       </p>
 
       <div class="post-body">
-        {#each getLinkifiedSegments(post.body) as segment, i (i)}
-          {#if segment.type === 'link'}
+        {#each getPostBodySegments(post.body) as segment, i (i)}
+          {#if segment.type === 'url'}
             <a href={segment.href} target="_blank" rel="noopener noreferrer nofollow">{segment.value}</a>
+          {:else if segment.type === 'reply_ref'}
+            {@const targetPost = postsByNumber.get(segment.postNumber)}
+            {#if targetPost}
+              {@const previewText = getPostPreviewText(targetPost)}
+              <span class="reply-ref">
+                <a
+                  href={`#post-${segment.postNumber}`}
+                  class="reply-ref-link"
+                  aria-label={`Go to post #${segment.postNumber}`}
+                >
+                  {`>> #${segment.postNumber}`}
+                </a>
+                <span class="reply-ref-preview" role="tooltip">
+                  <strong>#{segment.postNumber} · {displayUsername(targetPost.author_username)}</strong>
+                  {#if targetPost.media_url && targetPost.media_type === 'video'}
+                    <video
+                      class="reply-ref-preview-media"
+                      src={targetPost.media_url}
+                      muted
+                      loop
+                      autoplay
+                      playsinline
+                      preload="metadata"
+                    ></video>
+                  {:else if targetPost.media_url || targetPost.image_url}
+                    <img
+                      class="reply-ref-preview-media"
+                      src={targetPost.media_url ?? targetPost.image_url!}
+                      alt={`Preview for post #${segment.postNumber}`}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  {/if}
+                  {#if previewText}
+                    <span>{previewText}</span>
+                  {/if}
+                </span>
+              </span>
+            {:else}
+              <span class="reply-ref-missing">{`>> #${segment.postNumber}`}</span>
+            {/if}
           {:else}
             {segment.value}
           {/if}
@@ -407,6 +571,7 @@
               </div>
             {:else}
               <iframe
+                class:reddit-embed={embed.kind === 'reddit'}
                 src={requireEmbedUrl(embed)}
                 title={embed.title}
                 loading="lazy"
@@ -466,7 +631,14 @@
 
   <label>
     Body
-    <textarea class="post-editor" bind:value={body} maxlength="5000" rows="8" on:paste={handleBodyPaste}></textarea>
+    <textarea
+      class="post-editor"
+      bind:this={replyEditor}
+      bind:value={body}
+      maxlength="5000"
+      rows="8"
+      on:paste={handleBodyPaste}
+    ></textarea>
   </label>
 
   <div>
@@ -503,8 +675,9 @@
 
 <style>
   article.reply {
-    margin-left: clamp(0.5rem, 2vw, 1.25rem);
-    padding-left: 0.75rem;
+    --reply-indent-step: clamp(0.5rem, 2vw, 1.25rem);
+    margin-left: calc(var(--reply-level, 1) * var(--reply-indent-step));
+    padding-left: calc(var(--reply-level, 1) * 0.75rem);
     border-left: 2px solid #d7d7d7;
   }
 
@@ -526,6 +699,11 @@
     border: 0;
     border-radius: 8px;
     background: #111;
+  }
+
+  .post-embeds iframe.reddit-embed {
+    aspect-ratio: auto;
+    height: clamp(22rem, 70vh, 42rem);
   }
 
   .embed-card {
@@ -572,6 +750,52 @@
     color: #1d4ed8;
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+
+  .reply-ref {
+    position: relative;
+    display: inline-block;
+  }
+
+  .post-body .reply-ref-link {
+    font-weight: 600;
+    text-decoration: none;
+    text-underline-offset: 0;
+  }
+
+  .reply-ref-preview {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.2rem);
+    left: 0;
+    z-index: 8;
+    width: min(28rem, 80vw);
+    padding: 0.45rem 0.55rem;
+    border: 1px solid #d7d7d7;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    white-space: normal;
+    line-height: 1.3;
+    pointer-events: none;
+  }
+
+  .reply-ref-preview-media {
+    width: min(100%, 18rem);
+    max-height: 12rem;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #111;
+  }
+
+  .reply-ref:hover .reply-ref-preview,
+  .reply-ref:focus-within .reply-ref-preview {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .reply-ref-missing {
+    opacity: 0.75;
   }
 
   .image-button {
@@ -648,5 +872,9 @@
     padding: 0.35rem;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
     white-space: nowrap;
+  }
+
+  .op-reply-button {
+    margin-left: 0.05rem;
   }
 </style>
