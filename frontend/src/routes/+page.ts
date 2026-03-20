@@ -1,4 +1,7 @@
 import { api } from '$lib/api';
+import type { BoardAnnouncementResponse } from '$lib/types';
+
+const HOMEPAGE_ANNOUNCEMENT_BOARD = 'general';
 
 type Board = {
   slug: string;
@@ -11,9 +14,16 @@ type BoardsResponse = {
 };
 
 export async function load({ fetch }) {
-  const data = await api<BoardsResponse>(fetch, '/api/boards');
+  const [boardsData, announcementData] = await Promise.all([
+    api<BoardsResponse>(fetch, '/api/boards'),
+    api<BoardAnnouncementResponse>(
+      fetch,
+      `/api/boards/${HOMEPAGE_ANNOUNCEMENT_BOARD}/announcement`
+    )
+  ]);
 
   return {
-    boards: data.boards,
+    boards: boardsData.boards,
+    announcement: announcementData.announcement,
   };
 }

@@ -12,6 +12,11 @@
 
   let subject = $state('');
   let body = $state('');
+  let creating = $state(false);
+  let error = $state('');
+  let mediaFile = $state<File | null>(null);
+  let mediaPreviewUrl = $state('');
+  let mediaPreviewIsVideo = $state(false);
 
   function setMedia(file: File | null) {
     if (mediaPreviewUrl) {

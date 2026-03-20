@@ -26,6 +26,7 @@
   let expandedImageUrl = $state<string | null>(null);
   let imageFile = $state<File | null>(null);
   let imagePreviewUrl = $state('');
+  let replyEditor: HTMLTextAreaElement | null = null;
 
   const MAX_EMBEDS_PER_POST = 3;
   const URL_RE = /https?:\/\/[^\s<>()]+/gi;
@@ -106,6 +107,23 @@
 
   function closeImage() {
     expandedImageUrl = null;
+  }
+
+  function startReplyToPost(postNumber: number) {
+    opMenuOpen = false;
+
+    const marker = `>>${postNumber}`;
+    const markerPattern = new RegExp(`(^|\\n)${marker}(\\n|$)`);
+    if (!markerPattern.test(body)) {
+      body = body.trim().length > 0 ? `${body}\n${marker}` : `${marker}\n`;
+    }
+
+    queueMicrotask(() => {
+      replyEditor?.focus();
+      const end = replyEditor?.value.length ?? 0;
+      replyEditor?.setSelectionRange(end, end);
+      replyEditor?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }
 
   function displayUsername(username?: string | null) {
@@ -191,6 +209,15 @@
   <button type="button" on:click={deleteThread} disabled={deleting || replying}>
     {deleting ? 'Deleting...' : 'Delete thread'}
   </button>
+  <button
+    type="button"
+    aria-label="Reply to thread"
+    title="Reply to thread"
+    on:click={() => startReplyToPost(1)}
+    disabled={deleting || replying}
+  >
+    ↩
+  </button>
 </p>
 
 <section>
@@ -210,6 +237,7 @@
         </strong>
 
         {#if post.post_number === 1}
+          {@const opPostNumber = post.post_number}
           <span class="op-menu">
             <button
               type="button"
@@ -230,6 +258,16 @@
               </span>
             {/if}
           </span>
+          <button
+            type="button"
+            class="op-reply-button"
+            aria-label="Reply to thread"
+            title="Reply to thread"
+            on:click={() => startReplyToPost(opPostNumber)}
+            disabled={deleting || replying}
+          >
+            ↩
+          </button>
         {/if}
 
         {#if post.author_tags && post.author_tags.length > 0}
@@ -304,6 +342,7 @@
     Body
     <textarea
       class="post-editor"
+      bind:this={replyEditor}
       bind:value={body}
       maxlength="5000"
       rows="8"
@@ -475,5 +514,9 @@
     padding: 0.35rem;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
     white-space: nowrap;
+  }
+
+  .op-reply-button {
+    margin-left: 0.4rem;
   }
 </style>

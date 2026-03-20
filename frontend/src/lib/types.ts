@@ -34,6 +34,12 @@ export type Post = {
 
 export type ThreadListResponse = {
   threads: Thread[];
+  announcement?: string;
+};
+
+export type BoardAnnouncementResponse = {
+  slug: string;
+  announcement: string;
 };
 
 export type ThreadDetailResponse = {
