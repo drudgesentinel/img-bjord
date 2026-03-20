@@ -20,6 +20,7 @@ export function createApp() {
   const PgSession = connectPgSimple(session);
 
   const DEBUG = process.env.DEBUG === "true";
+  const SHOW_ERROR_DETAILS = process.env.SHOW_ERROR_DETAILS === "true";
 
   if (process.env.NODE_ENV === "production") {
     app.set("trust proxy", 1);
@@ -86,7 +87,25 @@ export function createApp() {
 
   app.use((err, req, res, next) => {
     req.log?.error(err);
-    res.status(500).json({ error: "internal_error" });
+    const requestId = req.id ?? null;
+    const showDetails = SHOW_ERROR_DETAILS || process.env.NODE_ENV !== "production";
+
+    const payload = {
+      error: "internal_error",
+      requestId,
+    };
+
+    if (showDetails) {
+      payload.message = err instanceof Error ? err.message : String(err);
+      if (err && typeof err === "object" && "code" in err) {
+        payload.code = err.code;
+      }
+      if (err instanceof Error && err.stack) {
+        payload.stack = err.stack;
+      }
+    }
+
+    res.status(500).json(payload);
   });
 
   return app;
