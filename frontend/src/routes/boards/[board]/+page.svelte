@@ -14,9 +14,14 @@
   let body = $state('');
   let creating = $state(false);
   let error = $state('');
+  let unauthorizedModalOpen = $state(false);
   let mediaFile = $state<File | null>(null);
   let mediaPreviewUrl = $state('');
   let mediaPreviewIsVideo = $state(false);
+
+  function isUnauthorizedApiError(err: unknown): boolean {
+    return err instanceof Error && /^API error 401\b/.test(err.message);
+  }
 
   function setMedia(file: File | null) {
     if (mediaPreviewUrl) {
@@ -98,6 +103,10 @@
       clearMedia();
       await goto(frontendPath);
     } catch (e) {
+      if (isUnauthorizedApiError(e)) {
+        unauthorizedModalOpen = true;
+        return;
+      }
       error = e instanceof Error ? e.message : 'Failed to create thread';
     } finally {
       creating = false;
@@ -157,6 +166,26 @@
   {/if}
 </section>
 
+{#if unauthorizedModalOpen}
+  <div
+    class="auth-modal-backdrop"
+    role="presentation"
+    on:click={() => (unauthorizedModalOpen = false)}
+  >
+    <div
+      class="auth-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-required-title"
+      on:click={(event) => event.stopPropagation()}
+    >
+      <h3 id="auth-required-title">Post failed</h3>
+      <p>are you even logged in?</p>
+      <button type="button" on:click={() => (unauthorizedModalOpen = false)}>OK</button>
+    </div>
+  </div>
+{/if}
+
 <style>
   .form-row {
     display: grid;
@@ -174,6 +203,26 @@
   textarea {
     width: 100%;
     box-sizing: border-box;
+  }
+
+  .auth-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    padding: 1rem;
+  }
+
+  .auth-modal {
+    width: min(28rem, 92vw);
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fff;
+    padding: 1rem;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
   }
 </style>
 

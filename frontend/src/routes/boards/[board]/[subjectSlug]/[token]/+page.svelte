@@ -51,6 +51,7 @@
   let replyMenuOpenPostIds = $state<Record<string, boolean>>({});
   let opMenuOpen = $state(false);
   let error = $state('');
+  let unauthorizedModalOpen = $state(false);
   let expandedImageUrl = $state<string | null>(null);
   let controlsVisiblePostIds = $state<Record<string, boolean>>({});
   let mediaFile = $state<File | null>(null);
@@ -190,6 +191,10 @@
   function displayUsername(username?: string | null) {
     if (!username) return 'anonymous';
     return username.replace(/_\d+$/, '');
+  }
+
+  function isUnauthorizedApiError(err: unknown): boolean {
+    return err instanceof Error && /^API error 401\b/.test(err.message);
   }
 
   function appendLinkifiedSegments(text: string, into: PostBodySegment[]) {
@@ -340,6 +345,10 @@
       clearMedia();
       await invalidateAll();
     } catch (e) {
+      if (isUnauthorizedApiError(e)) {
+        unauthorizedModalOpen = true;
+        return;
+      }
       const message = e instanceof Error ? e.message : 'Failed to post reply';
       if (mediaFile && /NetworkError|Failed to fetch/i.test(message)) {
         error = `${message}. If this happens only for videos, check reverse proxy upload size (e.g. nginx client_max_body_size) and MAX_IMAGE_UPLOAD_BYTES.`;
@@ -626,6 +635,26 @@
   </div>
 {/if}
 
+{#if unauthorizedModalOpen}
+  <div
+    class="auth-modal-backdrop"
+    role="presentation"
+    on:click={() => (unauthorizedModalOpen = false)}
+  >
+    <div
+      class="auth-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reply-auth-required-title"
+      on:click={(event) => event.stopPropagation()}
+    >
+      <h3 id="reply-auth-required-title">Post failed</h3>
+      <p>are you even logged in?</p>
+      <button type="button" on:click={() => (unauthorizedModalOpen = false)}>OK</button>
+    </div>
+  </div>
+{/if}
+
 <section>
   <h2>Reply</h2>
 
@@ -821,6 +850,26 @@
     width: auto;
     height: auto;
     object-fit: contain;
+  }
+
+  .auth-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    padding: 1rem;
+  }
+
+  .auth-modal {
+    width: min(28rem, 92vw);
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fff;
+    padding: 1rem;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
   }
 
   .author-name {
