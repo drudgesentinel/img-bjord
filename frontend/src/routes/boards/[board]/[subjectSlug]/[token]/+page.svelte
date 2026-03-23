@@ -1,20 +1,20 @@
 <svelte:head>
-  <title>{metaTitle()}</title>
-  <meta name="description" content={metaDescription()} />
+  <title>{threadMeta.title}</title>
+  <meta name="description" content={threadMeta.description} />
   <meta property="og:type" content="article" />
-  <meta property="og:title" content={metaTitle()} />
-  <meta property="og:description" content={metaDescription()} />
-  <meta property="og:url" content={metaUrl()} />
+  <meta property="og:title" content={threadMeta.title} />
+  <meta property="og:description" content={threadMeta.description} />
+  <meta property="og:url" content={threadMeta.url} />
   <meta property="og:site_name" content="Krepost" />
-  <meta property="og:image" content={metaImageUrl()} />
-  <meta property="og:image:alt" content={metaTitle()} />
+  <meta property="og:image" content={threadMeta.imageUrl} />
+  <meta property="og:image:alt" content={threadMeta.title} />
 
-  <meta name="twitter:title" content={metaTitle()} />
-  <meta name="twitter:description" content={metaDescription()} />
-  <meta name="twitter:card" content={metaTwitterCard()} />
+  <meta name="twitter:title" content={threadMeta.title} />
+  <meta name="twitter:description" content={threadMeta.description} />
+  <meta name="twitter:card" content={threadMeta.twitterCard} />
   <meta name="twitter:site" content="@krepost" />
-  <meta name="twitter:image" content={metaImageUrl()} />
-  <meta name="twitter:image:alt" content={metaTitle()} />
+  <meta name="twitter:image" content={threadMeta.imageUrl} />
+  <meta name="twitter:image:alt" content={threadMeta.title} />
 </svelte:head>
 
 <script lang="ts">
@@ -23,6 +23,7 @@
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
   import { siteConfig } from '$lib/siteConfig';
+  import { buildThreadMeta } from '$lib/threadMeta';
   import {
     getLinkifiedSegments,
     parseUrl,
@@ -67,58 +68,7 @@
   const currentUserIsAdmin = $derived(Boolean(page.data.user?.is_admin));
   const currentUserId = $derived(page.data.user?.id ?? null);
   const postsByNumber = $derived(new Map(data.posts.map((post) => [post.post_number, post])));
-
-  function normalizeWhitespace(value: string): string {
-    return value.replace(/\s+/g, ' ').trim();
-  }
-
-  function opPost(): Post | null {
-    return data.posts.find((post) => post.post_number === 1) ?? data.posts[0] ?? null;
-  }
-
-  function absoluteSiteUrl(path: string): string {
-    const base = siteConfig.siteUrl.replace(/\/$/, '');
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    return `${base}${normalizedPath}`;
-  }
-
-  function metaTitle(): string {
-    const subject = data.thread.subject?.trim() || '(untitled)';
-    return `${subject} - /${data.thread.board_slug}/`;
-  }
-
-  function metaDescription(): string {
-    const opBody = normalizeWhitespace(opPost()?.body ?? '');
-    if (opBody) {
-      return opBody.length > 200 ? `${opBody.slice(0, 197)}...` : opBody;
-    }
-    return `Thread on /${data.thread.board_slug}/ at ${siteConfig.siteName}`;
-  }
-
-  function metaUrl(): string {
-    return absoluteSiteUrl(`/boards/${data.thread.board_slug}/${data.thread.subject_slug}/${data.thread.token}`);
-  }
-
-  function metaImageUrl(): string {
-    const post = opPost();
-    const mediaUrl = post?.media_type === 'image' ? post.media_url : null;
-    if (mediaUrl?.startsWith('http://') || mediaUrl?.startsWith('https://')) {
-      return mediaUrl;
-    }
-    if (mediaUrl?.startsWith('/')) {
-      return absoluteSiteUrl(mediaUrl);
-    }
-
-    const fallbackLogoPath = siteConfig.logoPath ?? '/favicon.png';
-    if (fallbackLogoPath.startsWith('http://') || fallbackLogoPath.startsWith('https://')) {
-      return fallbackLogoPath;
-    }
-    return absoluteSiteUrl(fallbackLogoPath);
-  }
-
-  function metaTwitterCard(): string {
-    return opPost()?.media_type === 'image' ? 'summary_large_image' : 'summary';
-  }
+  const threadMeta = $derived(buildThreadMeta({ thread: data.thread, posts: data.posts, site: siteConfig }));
 
   function cleanCandidateUrl(raw: string): string {
     return raw.replace(/[),.;!?]+$/g, '');
