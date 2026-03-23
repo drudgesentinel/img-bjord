@@ -1,21 +1,20 @@
 <svelte:head>
+  <title>{metaTitle()}</title>
+  <meta name="description" content={metaDescription()} />
   <meta property="og:type" content="article" />
-  <meta property="og:title" content={data.thread.subject ?? '(untitled)'} />
-  <meta property="og:description" content={data.thread.body ? data.thread.body.slice(0, 200) : ''} />
-  <meta property="og:url" content={'https://krepost.net/boards/' + data.thread.board_slug + '/' + data.thread.subject_slug + '/' + data.thread.token} />
+  <meta property="og:title" content={metaTitle()} />
+  <meta property="og:description" content={metaDescription()} />
+  <meta property="og:url" content={metaUrl()} />
   <meta property="og:site_name" content="Krepost" />
-  <meta property="og:image" content="https://krepost.net/static/logo.png" />
-  <meta property="og:image:type" content="image/png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="1200" />
-  <meta property="og:image:alt" content="Krepost logo" />
+  <meta property="og:image" content={metaImageUrl()} />
+  <meta property="og:image:alt" content={metaTitle()} />
 
-  <meta name="twitter:title" content={data.thread.subject ?? '(untitled)'} />
-  <meta name="twitter:description" content={data.thread.body ? data.thread.body.slice(0, 200) : ''} />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={metaTitle()} />
+  <meta name="twitter:description" content={metaDescription()} />
+  <meta name="twitter:card" content={metaTwitterCard()} />
   <meta name="twitter:site" content="@krepost" />
-  <meta name="twitter:image" content="https://krepost.net/static/logo.png" />
-  <meta name="twitter:image:alt" content="Krepost logo" />
+  <meta name="twitter:image" content={metaImageUrl()} />
+  <meta name="twitter:image:alt" content={metaTitle()} />
 </svelte:head>
 
 <script lang="ts">
@@ -23,6 +22,7 @@
   import { page } from '$app/state';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
+  import { siteConfig } from '$lib/siteConfig';
   import {
     getLinkifiedSegments,
     parseUrl,
@@ -67,6 +67,58 @@
   const currentUserIsAdmin = $derived(Boolean(page.data.user?.is_admin));
   const currentUserId = $derived(page.data.user?.id ?? null);
   const postsByNumber = $derived(new Map(data.posts.map((post) => [post.post_number, post])));
+
+  function normalizeWhitespace(value: string): string {
+    return value.replace(/\s+/g, ' ').trim();
+  }
+
+  function opPost(): Post | null {
+    return data.posts.find((post) => post.post_number === 1) ?? data.posts[0] ?? null;
+  }
+
+  function absoluteSiteUrl(path: string): string {
+    const base = siteConfig.siteUrl.replace(/\/$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${base}${normalizedPath}`;
+  }
+
+  function metaTitle(): string {
+    const subject = data.thread.subject?.trim() || '(untitled)';
+    return `${subject} - /${data.thread.board_slug}/`;
+  }
+
+  function metaDescription(): string {
+    const opBody = normalizeWhitespace(opPost()?.body ?? '');
+    if (opBody) {
+      return opBody.length > 200 ? `${opBody.slice(0, 197)}...` : opBody;
+    }
+    return `Thread on /${data.thread.board_slug}/ at ${siteConfig.siteName}`;
+  }
+
+  function metaUrl(): string {
+    return absoluteSiteUrl(`/boards/${data.thread.board_slug}/${data.thread.subject_slug}/${data.thread.token}`);
+  }
+
+  function metaImageUrl(): string {
+    const post = opPost();
+    const mediaUrl = post?.media_type === 'image' ? post.media_url : null;
+    if (mediaUrl?.startsWith('http://') || mediaUrl?.startsWith('https://')) {
+      return mediaUrl;
+    }
+    if (mediaUrl?.startsWith('/')) {
+      return absoluteSiteUrl(mediaUrl);
+    }
+
+    const fallbackLogoPath = siteConfig.logoPath ?? '/favicon.png';
+    if (fallbackLogoPath.startsWith('http://') || fallbackLogoPath.startsWith('https://')) {
+      return fallbackLogoPath;
+    }
+    return absoluteSiteUrl(fallbackLogoPath);
+  }
+
+  function metaTwitterCard(): string {
+    return opPost()?.media_type === 'image' ? 'summary_large_image' : 'summary';
+  }
 
   function cleanCandidateUrl(raw: string): string {
     return raw.replace(/[),.;!?]+$/g, '');
@@ -456,14 +508,14 @@
               class="op-menu-trigger"
               aria-label="Thread options"
               title="Thread options"
-              on:click={() => (opMenuOpen = !opMenuOpen)}
+              onclick={() => (opMenuOpen = !opMenuOpen)}
               disabled={deleting || replying}
             >
               ⋯
             </button>
             {#if opMenuOpen}
               <span class="op-menu-panel">
-                <button type="button" on:click={deleteThread} disabled={deleting || replying}>
+                <button type="button" onclick={deleteThread} disabled={deleting || replying}>
                   {deleting ? 'Deleting...' : 'Delete thread'}
                 </button>
               </span>
@@ -484,7 +536,7 @@
               class="op-menu-trigger"
               aria-label="Reply options"
               title="Reply options"
-              on:click={() => toggleReplyMenu(post.id)}
+              onclick={() => toggleReplyMenu(post.id)}
               disabled={deleting || replying || Boolean(deletingReplyIds[post.id])}
             >
               ⋯
@@ -493,7 +545,7 @@
               <span class="op-menu-panel">
                 <button
                   type="button"
-                  on:click={() => deleteReply(post)}
+                  onclick={() => deleteReply(post)}
                   disabled={deleting || replying || Boolean(deletingReplyIds[post.id])}
                 >
                   {deletingReplyIds[post.id] ? 'Deleting…' : 'Delete'}
@@ -507,7 +559,7 @@
           class="op-reply-button"
           aria-label={`Reply to post #${post.post_number}`}
           title={`Reply to post #${post.post_number}`}
-          on:click={() => startReplyToPost(post.post_number)}
+          onclick={() => startReplyToPost(post.post_number)}
           disabled={deleting || replying}
         >
           ↩
@@ -605,13 +657,13 @@
             preload="metadata"
             width={post.media_width ?? undefined}
             height={post.media_height ?? undefined}
-            on:click={() => showVideoControls(post.id)}
+            onclick={() => showVideoControls(post.id)}
           ></video>
         </figure>
       {:else if post.image_url || (post.media_url && post.media_type === 'image')}
         {@const imageUrl = post.media_url ?? post.image_url}
         <figure class="post-image">
-          <button type="button" class="image-button" on:click={() => openImage(imageUrl!)}>
+          <button type="button" class="image-button" onclick={() => openImage(imageUrl!)}>
             <img
               src={imageUrl}
               alt="Post image"
@@ -630,7 +682,7 @@
 </section>
 
 {#if expandedImageUrl}
-  <div class="lightbox" on:click={closeImage}>
+  <div class="lightbox" onclick={closeImage}>
     <img src={expandedImageUrl} alt="Expanded post image" class="lightbox-image" />
   </div>
 {/if}
@@ -639,18 +691,18 @@
   <div
     class="auth-modal-backdrop"
     role="presentation"
-    on:click={() => (unauthorizedModalOpen = false)}
+    onclick={() => (unauthorizedModalOpen = false)}
   >
     <div
       class="auth-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reply-auth-required-title"
-      on:click={(event) => event.stopPropagation()}
+      onclick={(event) => event.stopPropagation()}
     >
       <h3 id="reply-auth-required-title">Post failed</h3>
       <p>are you even logged in?</p>
-      <button type="button" on:click={() => (unauthorizedModalOpen = false)}>OK</button>
+      <button type="button" onclick={() => (unauthorizedModalOpen = false)}>OK</button>
     </div>
   </div>
 {/if}
@@ -666,14 +718,14 @@
       bind:value={body}
       maxlength="5000"
       rows="8"
-      on:paste={handleBodyPaste}
+      onpaste={handleBodyPaste}
     ></textarea>
   </label>
 
   <div>
     <label>
       Media
-      <input type="file" accept="image/*,video/mp4,video/webm" on:change={handleMediaChange} />
+      <input type="file" accept="image/*,video/mp4,video/webm" onchange={handleMediaChange} />
     </label>
     <p><small>Tip: you can also paste an image into the body field.</small></p>
   </div>
@@ -686,13 +738,13 @@
         <img src={mediaPreviewUrl} alt="Selected media preview" style="max-width: 320px; max-height: 320px;" />
       {/if}
       <div>
-        <button type="button" on:click={clearMedia} disabled={replying}>Remove media</button>
+        <button type="button" onclick={clearMedia} disabled={replying}>Remove media</button>
       </div>
     </div>
   {/if}
 
   <div>
-    <button on:click={submitReply} disabled={replying}>
+    <button onclick={submitReply} disabled={replying}>
       {replying ? 'Replying...' : 'Post reply'}
     </button>
   </div>

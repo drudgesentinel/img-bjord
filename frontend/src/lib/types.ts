@@ -42,6 +42,17 @@ export type BoardAnnouncementResponse = {
   announcement: string;
 };
 
+export type LatestPost = Post & {
+  board_slug: string;
+  subject: string | null;
+  subject_slug: string;
+  token: string;
+};
+
+export type LatestPostListResponse = {
+  posts: LatestPost[];
+};
+
 export type ThreadDetailResponse = {
   thread: Thread;
   posts: Post[];

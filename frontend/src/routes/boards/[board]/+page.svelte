@@ -132,14 +132,14 @@
       bind:value={body}
       maxlength="5000"
       rows="8"
-      on:paste={handleBodyPaste}
+      onpaste={handleBodyPaste}
     ></textarea>
   </div>
 
   <div>
     <label>
       Media
-      <input type="file" accept="image/*,video/mp4,video/webm" on:change={handleMediaChange} />
+      <input type="file" accept="image/*,video/mp4,video/webm" onchange={handleMediaChange} />
     </label>
     <p><small>Tip: you can also paste an image into the body field.</small></p>
   </div>
@@ -152,12 +152,12 @@
         <img src={mediaPreviewUrl} alt="Selected media preview" style="max-width: 320px; max-height: 320px;" />
       {/if}
       <div>
-        <button type="button" on:click={clearMedia} disabled={creating}>Remove media</button>
+        <button type="button" onclick={clearMedia} disabled={creating}>Remove media</button>
       </div>
     </div>
   {/if}
 
-  <button on:click={createThread} disabled={creating}>
+  <button onclick={createThread} disabled={creating}>
     {creating ? 'Posting...' : 'Create thread'}
   </button>
 
@@ -170,18 +170,18 @@
   <div
     class="auth-modal-backdrop"
     role="presentation"
-    on:click={() => (unauthorizedModalOpen = false)}
+    onclick={() => (unauthorizedModalOpen = false)}
   >
     <div
       class="auth-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-required-title"
-      on:click={(event) => event.stopPropagation()}
+      onclick={(event) => event.stopPropagation()}
     >
       <h3 id="auth-required-title">Post failed</h3>
       <p>are you even logged in?</p>
-      <button type="button" on:click={() => (unauthorizedModalOpen = false)}>OK</button>
+      <button type="button" onclick={() => (unauthorizedModalOpen = false)}>OK</button>
     </div>
   </div>
 {/if}

@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import { csrfFetch } from '$lib/csrf';
   import { siteConfig } from '$lib/siteConfig';
+  import type { LatestPost } from '$lib/types';
 
   const HOMEPAGE_ANNOUNCEMENT_BOARD = 'general';
 
@@ -13,8 +14,15 @@
         created_at: string;
       }[];
       announcement: string;
+      latestPosts: LatestPost[];
     };
   }>();
+
+  function postPreview(body: string) {
+    const compact = body.replace(/\s+/g, ' ').trim();
+    if (!compact) return '';
+    return compact.length > 140 ? `${compact.slice(0, 137)}...` : compact;
+  }
 
   let announcementDraft = $state(data.announcement ?? '');
   let editingAnnouncement = $state(false);
@@ -91,17 +99,17 @@
     {/if}
 
     <div class="announcement-actions">
-      <button type="button" on:click={saveAnnouncement} disabled={announcementSaving}>
+      <button type="button" onclick={saveAnnouncement} disabled={announcementSaving}>
         {announcementSaving ? 'Saving...' : 'Save announcement'}
       </button>
-      <button type="button" on:click={cancelEditingAnnouncement} disabled={announcementSaving}>Cancel</button>
+      <button type="button" onclick={cancelEditingAnnouncement} disabled={announcementSaving}>Cancel</button>
     </div>
   {:else}
     <div class="announcement-view">{data.announcement?.trim() ? data.announcement : 'No announcements yet.'}</div>
 
     {#if currentUserIsAdmin}
       <div class="announcement-actions">
-        <button type="button" on:click={startEditingAnnouncement}>Edit announcement</button>
+        <button type="button" onclick={startEditingAnnouncement}>Edit announcement</button>
       </div>
     {/if}
   {/if}
@@ -121,6 +129,55 @@
     {/each}
   </ul>
 {/if}
+
+<section class="latest-posts-panel">
+  <h2>Latest posts</h2>
+
+  {#if data.latestPosts.length === 0}
+    <p>No posts yet.</p>
+  {:else}
+    <ul class="latest-posts-list">
+      {#each data.latestPosts as post}
+        <li>
+          <a
+            class="latest-post-title-link"
+            href={`/boards/${post.board_slug}/${post.subject_slug}/${post.token}#post-${post.post_number}`}
+          >
+            /{post.board_slug}/ {post.subject?.trim() || '(untitled)'}
+          </a>
+          {#if post.media_url}
+            <a
+              class="latest-post-media-link"
+              href={`/boards/${post.board_slug}/${post.subject_slug}/${post.token}#post-${post.post_number}`}
+            >
+              {#if post.media_type === 'video'}
+                <video
+                  class="latest-post-media-thumb"
+                  src={post.media_url}
+                  muted
+                  playsinline
+                  preload="metadata"
+                  controls
+                ></video>
+              {:else}
+                <img
+                  class="latest-post-media-thumb"
+                  src={post.media_url}
+                  alt="Latest post media preview"
+                  loading="lazy"
+                />
+              {/if}
+            </a>
+          {/if}
+          <small class="latest-post-timestamp">· {new Date(post.created_at).toLocaleString()}</small>
+          {#if post.body.trim()}
+            <div class="latest-post-preview">{postPreview(post.body)}</div>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</section>
 
 <style>
   .announcement-panel {
@@ -162,5 +219,48 @@
 
   .board-list {
     text-transform: uppercase;
+  }
+
+  .latest-posts-panel {
+    margin-top: 1rem;
+  }
+
+  .latest-posts-list {
+    display: grid;
+    gap: 0.5rem;
+    padding-left: 1rem;
+  }
+
+  .latest-posts-list li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .latest-post-title-link {
+    display: block;
+  }
+
+  .latest-post-preview {
+    margin-top: 0.1rem;
+    opacity: 0.9;
+  }
+
+  .latest-post-timestamp {
+    display: block;
+    margin-top: 0.2rem;
+  }
+
+  .latest-post-media-link {
+    display: inline-block;
+    margin-top: 0.35rem;
+  }
+
+  .latest-post-media-thumb {
+    display: block;
+    max-width: min(18rem, 85vw);
+    max-height: 11rem;
+    border-radius: 0.2rem;
+    object-fit: cover;
   }
 </style>

@@ -206,14 +206,14 @@
 <h1>/{data.board}/ {data.thread.subject ?? '(untitled)'}</h1>
 
 <p>
-  <button type="button" on:click={deleteThread} disabled={deleting || replying}>
+  <button type="button" onclick={deleteThread} disabled={deleting || replying}>
     {deleting ? 'Deleting...' : 'Delete thread'}
   </button>
   <button
     type="button"
     aria-label="Reply to thread"
     title="Reply to thread"
-    on:click={() => startReplyToPost(1)}
+    onclick={() => startReplyToPost(1)}
     disabled={deleting || replying}
   >
     ↩
@@ -244,7 +244,7 @@
               class="op-menu-trigger"
               aria-label="Thread options"
               title="Thread options"
-              on:click={() => (opMenuOpen = !opMenuOpen)}
+              onclick={() => (opMenuOpen = !opMenuOpen)}
               disabled={deleting || replying}
             >
               ⋯
@@ -252,7 +252,7 @@
 
             {#if opMenuOpen}
               <span class="op-menu-panel">
-                <button type="button" on:click={deleteThread} disabled={deleting || replying}>
+                <button type="button" onclick={deleteThread} disabled={deleting || replying}>
                   {deleting ? 'Deleting...' : 'Delete thread'}
                 </button>
               </span>
@@ -263,7 +263,7 @@
             class="op-reply-button"
             aria-label="Reply to thread"
             title="Reply to thread"
-            on:click={() => startReplyToPost(opPostNumber)}
+            onclick={() => startReplyToPost(opPostNumber)}
             disabled={deleting || replying}
           >
             ↩
@@ -311,7 +311,7 @@
 
       {#if post.image_url}
         <figure class="post-image">
-          <button type="button" class="image-button" on:click={() => openImage(post.image_url!)}>
+          <button type="button" class="image-button" onclick={() => openImage(post.image_url!)}>
             <img
               src={post.image_url}
               alt="Post image"
@@ -330,7 +330,7 @@
 </section>
 
 {#if expandedImageUrl}
-  <div class="lightbox" on:click={closeImage}>
+  <div class="lightbox" onclick={closeImage}>
     <img src={expandedImageUrl} alt="Expanded post image" class="lightbox-image" />
   </div>
 {/if}
@@ -346,14 +346,14 @@
       bind:value={body}
       maxlength="5000"
       rows="8"
-      on:paste={handleBodyPaste}
+      onpaste={handleBodyPaste}
     ></textarea>
   </label>
 
   <div>
     <label>
       Image
-      <input type="file" accept="image/*" on:change={handleImageChange} />
+      <input type="file" accept="image/*" onchange={handleImageChange} />
     </label>
     <p><small>Tip: you can also paste an image into the body field.</small></p>
   </div>
@@ -366,13 +366,13 @@
         style="max-width: 320px; max-height: 320px;"
       />
       <div>
-        <button type="button" on:click={clearImage} disabled={replying}>Remove image</button>
+        <button type="button" onclick={clearImage} disabled={replying}>Remove image</button>
       </div>
     </div>
   {/if}
 
   <div>
-    <button on:click={submitReply} disabled={replying}>
+    <button onclick={submitReply} disabled={replying}>
       {replying ? 'Replying...' : 'Post reply'}
     </button>
   </div>

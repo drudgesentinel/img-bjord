@@ -71,6 +71,47 @@ export async function listThreadsByBoard(db, { boardSlug, limit }) {
   return r.rows;
 }
 
+export async function listLatestPosts(db, { limit }) {
+  const r = await db.query(
+    `select p.id,
+            p.thread_id,
+            p.author_user_id,
+            p.post_number,
+            p.created_at,
+            p.body,
+            p.image_url,
+            p.image_mime_type,
+            p.image_size_bytes,
+            p.image_width,
+            p.image_height,
+            p.media_type,
+            p.media_url,
+            p.media_mime_type,
+            p.media_size_bytes,
+            p.media_width,
+            p.media_height,
+            p.media_duration_sec,
+            u.username as author_username,
+            coalesce(u.is_admin, false) as author_is_admin,
+            coalesce(u.tags, '{}'::text[]) as author_tags,
+            t.board_slug,
+            t.subject,
+            t.subject_slug,
+            t.token,
+            b.visible_to_tags
+     from posts p
+     join threads t on t.id = p.thread_id
+     join boards b on b.slug = t.board_slug
+     left join users u on u.id = p.author_user_id
+     where p.post_number = 1
+     order by p.created_at desc
+     limit $1`,
+    [limit],
+  );
+
+  return r.rows;
+}
+
 export async function findThreadByPretty(db, { boardSlug, subjectSlug, token }) {
   const r = await db.query(
     `select id, board_slug, subject, subject_slug, token, created_at, bumped_at

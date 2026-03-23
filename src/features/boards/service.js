@@ -108,6 +108,15 @@ export async function listThreadsForViewer({ boardSlug, viewerUserId = null, lim
   return repo.listThreadsByBoard(pool, { boardSlug, limit });
 }
 
+export async function listLatestPostsForViewer({ viewerUserId = null, limit = 20 }) {
+  const [latestPosts, viewer] = await Promise.all([
+    repo.listLatestPosts(pool, { limit }),
+    getViewerById(viewerUserId),
+  ]);
+
+  return latestPosts.filter((post) => canViewerAccessBoard(post, viewer));
+}
+
 export async function getBoardAnnouncementForViewer({ boardSlug, viewerUserId = null }) {
   const [board, viewer] = await Promise.all([repo.findBoardBySlug(pool, boardSlug), getViewerById(viewerUserId)]);
 

@@ -59,7 +59,7 @@
   <div>
     <button
       type="button"
-      on:click={login}
+      onclick={login}
       disabled={authBusy || !loginUsername.trim() || loginPassword.length === 0}
     >
       {authBusy ? 'Signing in...' : 'Sign in'}

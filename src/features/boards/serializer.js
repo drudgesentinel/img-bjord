@@ -8,6 +8,16 @@ export function serializeBoard(board) {
   };
 }
 
+export function serializeLatestPost(post) {
+  return {
+    ...serializePost(post),
+    board_slug: post.board_slug,
+    subject: post.subject,
+    subject_slug: post.subject_slug,
+    token: post.token,
+  };
+}
+
 export function serializePost(post) {
   const mediaType = post.media_type ?? (post.image_url ? "image" : null);
   const mediaUrl = post.media_url ?? post.image_url ?? null;
@@ -62,6 +72,12 @@ export function serializeBoardsResponse(boards) {
 export function serializeThreadListResponse(threads) {
   return {
     threads: threads.map(serializeThread),
+  };
+}
+
+export function serializeLatestPostListResponse(posts) {
+  return {
+    posts: posts.map(serializeLatestPost),
   };
 }
 

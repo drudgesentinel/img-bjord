@@ -215,17 +215,17 @@
 {/if}
 
 {#if successModalOpen}
-  <div class="modal-backdrop" role="presentation" on:click={() => (successModalOpen = false)}>
+  <div class="modal-backdrop" role="presentation" onclick={() => (successModalOpen = false)}>
     <div
       class="success-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="admin-success-title"
-      on:click={(event) => event.stopPropagation()}
+      onclick={(event) => event.stopPropagation()}
     >
       <h3 id="admin-success-title">Success</h3>
       <p>{successMessage}</p>
-      <button type="button" on:click={() => (successModalOpen = false)}>OK</button>
+      <button type="button" onclick={() => (successModalOpen = false)}>OK</button>
     </div>
   </div>
 {/if}
@@ -252,7 +252,7 @@
       maxlength="600"
       disabled={creatingBoard}
     />
-    <button type="button" on:click={createBoard} disabled={creatingBoard}>
+    <button type="button" onclick={createBoard} disabled={creatingBoard}>
       {creatingBoard ? 'Creating...' : 'Create board'}
     </button>
   </div>
@@ -278,7 +278,7 @@
             <td>
               <input
                 value={boardVisibilityDraft[board.slug] ?? ''}
-                on:input={(e) => {
+                oninput={(e) => {
                   boardVisibilityDraft = {
                     ...boardVisibilityDraft,
                     [board.slug]: (e.currentTarget as HTMLInputElement).value
@@ -292,14 +292,14 @@
             <td>
               <button
                 type="button"
-                on:click={() => saveBoardVisibility(board)}
+                onclick={() => saveBoardVisibility(board)}
                 disabled={busyBoardSlug === board.slug}
               >
                 Save visibility
               </button>
               <button
                 type="button"
-                on:click={() => removeBoard(board)}
+                onclick={() => removeBoard(board)}
                 disabled={busyBoardSlug === board.slug}
               >
                 Delete board
@@ -339,7 +339,7 @@
           <td>
             <input
               value={tagsDraft[user.id] ?? ''}
-              on:input={(e) => {
+              oninput={(e) => {
                 tagsDraft = {
                   ...tagsDraft,
                   [user.id]: (e.currentTarget as HTMLInputElement).value
@@ -352,14 +352,14 @@
           <td>{new Date(user.created_at).toLocaleString()}</td>
           <td>
             {#if !user.is_approved}
-              <button type="button" on:click={() => approveUser(user)} disabled={busyUserId === user.id}>
+              <button type="button" onclick={() => approveUser(user)} disabled={busyUserId === user.id}>
                 Approve
               </button>
             {/if}
-            <button type="button" on:click={() => saveTags(user)} disabled={busyUserId === user.id}>
+            <button type="button" onclick={() => saveTags(user)} disabled={busyUserId === user.id}>
               Save tags
             </button>
-            <button type="button" on:click={() => removeUser(user)} disabled={busyUserId === user.id}>
+            <button type="button" onclick={() => removeUser(user)} disabled={busyUserId === user.id}>
               Delete user
             </button>
           </td>

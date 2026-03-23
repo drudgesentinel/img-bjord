@@ -104,7 +104,7 @@
             {#if data.user.is_admin}
               <a href="/admin">Admin</a>
             {/if}
-            <button type="button" on:click={logout}>Sign out</button>
+            <button type="button" onclick={logout}>Sign out</button>
           </div>
         </details>
       {:else}

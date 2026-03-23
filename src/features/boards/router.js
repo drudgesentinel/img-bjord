@@ -8,6 +8,7 @@ import { isDomainError } from "../../lib/domainErrors.js";
 import { processMediaUpload } from "../../lib/processMediaUpload.js";
 import {
   listBoards,
+  listLatestPostsForViewer,
   createThread,
   getBoardAnnouncementForViewer,
   setBoardAnnouncement,
@@ -19,6 +20,7 @@ import {
 } from "./service.js";
 import {
   serializeBoardsResponse,
+  serializeLatestPostListResponse,
   serializeCreateThreadResponse,
   serializeThreadListResponse,
   serializeThreadDetailResponse,
@@ -62,6 +64,12 @@ const listThreadsQuerySchema = z
   })
   .strict();
 
+const listLatestPostsQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .strict();
+
 const createThreadSchema = z
   .object({
     subject: z.string().trim().min(1).max(100).optional(),
@@ -79,6 +87,19 @@ router.get("/", async (req, res, next) => {
   try {
     const boards = await listBoards({ viewerUserId: req.session?.userId ?? null });
     res.json(serializeBoardsResponse(boards));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/latest-posts", validateQuery(listLatestPostsQuerySchema), async (req, res, next) => {
+  try {
+    const limit = req.validatedQuery.limit ?? 20;
+    const posts = await listLatestPostsForViewer({
+      viewerUserId: req.session?.userId ?? null,
+      limit,
+    });
+    res.json(serializeLatestPostListResponse(posts));
   } catch (err) {
     next(err);
   }

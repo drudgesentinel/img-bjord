@@ -137,7 +137,7 @@
             name="register-username"
             value={option}
             checked={selectedRegisterUsername === option}
-            on:change={() => (selectedRegisterUsername = option)}
+            onchange={() => (selectedRegisterUsername = option)}
             disabled={authBusy || candidateBusy || reverseBusyFor === option}
           />
           {option}
@@ -145,7 +145,7 @@
         <button
           type="button"
           class="reverse-button"
-          on:click={() => reverseUsernameOption(option)}
+          onclick={() => reverseUsernameOption(option)}
           disabled={
             authBusy ||
             candidateBusy ||
@@ -161,7 +161,7 @@
 
   <button
     type="button"
-    on:click={loadUsernameOptions}
+    onclick={loadUsernameOptions}
     disabled={authBusy || candidateBusy}
   >
     {candidateBusy ? 'Loading...' : 'Regenerate usernames'}
@@ -171,7 +171,7 @@
 {#if usernameOptions.length === 0}
   <button
     type="button"
-    on:click={loadUsernameOptions}
+    onclick={loadUsernameOptions}
     disabled={authBusy || candidateBusy}
   >
     {candidateBusy ? 'Loading...' : 'Load username suggestions'}
@@ -192,7 +192,7 @@
 <div class="register-action-row">
   <button
     type="button"
-    on:click={register}
+    onclick={register}
     disabled={
       authBusy ||
       registerPassword.length < 8 ||
@@ -208,17 +208,17 @@
 {/if}
 
 {#if pendingApprovalModalOpen}
-  <div class="modal-backdrop" role="presentation" on:click={() => (pendingApprovalModalOpen = false)}>
+  <div class="modal-backdrop" role="presentation" onclick={() => (pendingApprovalModalOpen = false)}>
     <div
       class="pending-approval-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="pending-approval-title"
-      on:click={(event) => event.stopPropagation()}
+      onclick={(event) => event.stopPropagation()}
     >
       <h3 id="pending-approval-title">Account pending approval</h3>
       <p>{pendingApprovalMessage}</p>
-      <button type="button" on:click={() => (pendingApprovalModalOpen = false)}>OK</button>
+      <button type="button" onclick={() => (pendingApprovalModalOpen = false)}>OK</button>
     </div>
   </div>
 {/if}
