@@ -104,7 +104,7 @@ export async function listLatestPosts(db, { limit }) {
      join boards b on b.slug = t.board_slug
      left join users u on u.id = p.author_user_id
      where p.post_number = 1
-     order by p.created_at desc
+     order by t.bumped_at desc, p.created_at desc
      limit $1`,
     [limit],
   );
