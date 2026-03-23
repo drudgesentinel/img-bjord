@@ -178,15 +178,18 @@
   </button>
 {/if}
 
-<label>
+<label class="register-field">
   Password
   <input type="password" bind:value={registerPassword} minlength="8" maxlength="200" />
 </label>
-<label>
+<label class="register-field">
   Activation message
   <input bind:value={registerActivationCode} maxlength="500" />
 </label>
-<div>
+<div class="register-action-row">
+  <a href="/">Back to Sign in</a>
+</div>
+<div class="register-action-row">
   <button
     type="button"
     on:click={register}
@@ -198,7 +201,6 @@
   >
     Create account
   </button>
-  <a href="/">Back to Sign in</a>
 </div>
 
 {#if authError}
@@ -232,6 +234,22 @@
 
   .reverse-button {
     font-size: 0.8rem;
+  }
+
+  .register-field {
+    display: block;
+    margin-top: 0.5rem;
+  }
+
+  .register-field input {
+    display: block;
+    width: min(24rem, 100%);
+    margin-top: 0.2rem;
+    box-sizing: border-box;
+  }
+
+  .register-action-row {
+    margin-top: 0.5rem;
   }
 
   .modal-backdrop {
