@@ -36,6 +36,7 @@
 </script>
 
 <svelte:head>
+  <link rel="icon" href={siteConfig.faviconPath} />
   {#if siteConfig.siteFontCssPath}
     <link rel="stylesheet" href={siteConfig.siteFontCssPath} />
   {/if}
