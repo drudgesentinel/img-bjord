@@ -75,6 +75,109 @@ export function serializeThreadListResponse(threads) {
   };
 }
 
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function toAbsoluteUrl(siteUrl, pathname) {
+  return new URL(pathname, siteUrl).toString();
+}
+
+function toRfc822Date(value) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? new Date(0).toUTCString() : d.toUTCString();
+}
+
+export function serializeBoardRssResponse({ boardSlug, threads, siteUrl, selfUrl }) {
+  const channelTitle = `/${boardSlug}/ - Krepost`;
+  const channelLink = toAbsoluteUrl(siteUrl, `/boards/${boardSlug}`);
+  const channelDescription = `Latest threads from /${boardSlug}/`;
+  const lastBuildDate = threads[0]?.bumped_at ?? new Date().toISOString();
+
+  const itemsXml = threads
+    .map((thread) => {
+      const subject = thread.subject?.trim() || "(untitled)";
+      const threadPath = `/boards/${thread.board_slug}/${thread.subject_slug}/${thread.token}`;
+      const threadUrl = toAbsoluteUrl(siteUrl, threadPath);
+      const pubDate = toRfc822Date(thread.bumped_at ?? thread.created_at);
+
+      return [
+        "    <item>",
+        `      <title>${escapeXml(subject)}</title>`,
+        `      <link>${escapeXml(threadUrl)}</link>`,
+        `      <guid isPermaLink=\"true\">${escapeXml(threadUrl)}</guid>`,
+        `      <pubDate>${escapeXml(pubDate)}</pubDate>`,
+        "    </item>",
+      ].join("\n");
+    })
+    .join("\n");
+
+  return [
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<rss version=\"2.0\">",
+    "  <channel>",
+    `    <title>${escapeXml(channelTitle)}</title>`,
+    `    <link>${escapeXml(channelLink)}</link>`,
+    `    <description>${escapeXml(channelDescription)}</description>`,
+    `    <lastBuildDate>${escapeXml(toRfc822Date(lastBuildDate))}</lastBuildDate>`,
+    `    <docs>${escapeXml("https://www.rssboard.org/rss-specification")}</docs>`,
+    `    <generator>${escapeXml("img-bjord")}</generator>`,
+    `    <atom:link xmlns:atom=\"http://www.w3.org/2005/Atom\" href=\"${escapeXml(selfUrl)}\" rel=\"self\" type=\"application/rss+xml\" />`,
+    itemsXml,
+    "  </channel>",
+    "</rss>",
+    "",
+  ].join("\n");
+}
+
+export function serializeGlobalRssResponse({ threads, siteUrl, selfUrl }) {
+  const channelTitle = "All boards - Krepost";
+  const channelLink = toAbsoluteUrl(siteUrl, "/");
+  const channelDescription = "Latest threads across all boards";
+  const lastBuildDate = threads[0]?.bumped_at ?? new Date().toISOString();
+
+  const itemsXml = threads
+    .map((thread) => {
+      const subject = thread.subject?.trim() || "(untitled)";
+      const threadPath = `/boards/${thread.board_slug}/${thread.subject_slug}/${thread.token}`;
+      const threadUrl = toAbsoluteUrl(siteUrl, threadPath);
+      const pubDate = toRfc822Date(thread.bumped_at ?? thread.created_at);
+      const itemTitle = `/${thread.board_slug}/ ${subject}`;
+
+      return [
+        "    <item>",
+        `      <title>${escapeXml(itemTitle)}</title>`,
+        `      <link>${escapeXml(threadUrl)}</link>`,
+        `      <guid isPermaLink=\"true\">${escapeXml(threadUrl)}</guid>`,
+        `      <pubDate>${escapeXml(pubDate)}</pubDate>`,
+        "    </item>",
+      ].join("\n");
+    })
+    .join("\n");
+
+  return [
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<rss version=\"2.0\">",
+    "  <channel>",
+    `    <title>${escapeXml(channelTitle)}</title>`,
+    `    <link>${escapeXml(channelLink)}</link>`,
+    `    <description>${escapeXml(channelDescription)}</description>`,
+    `    <lastBuildDate>${escapeXml(toRfc822Date(lastBuildDate))}</lastBuildDate>`,
+    `    <docs>${escapeXml("https://www.rssboard.org/rss-specification")}</docs>`,
+    `    <generator>${escapeXml("img-bjord")}</generator>`,
+    `    <atom:link xmlns:atom=\"http://www.w3.org/2005/Atom\" href=\"${escapeXml(selfUrl)}\" rel=\"self\" type=\"application/rss+xml\" />`,
+    itemsXml,
+    "  </channel>",
+    "</rss>",
+    "",
+  ].join("\n");
+}
+
 export function serializeLatestPostListResponse(posts) {
   return {
     posts: posts.map(serializeLatestPost),

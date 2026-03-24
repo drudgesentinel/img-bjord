@@ -71,6 +71,26 @@ export async function listThreadsByBoard(db, { boardSlug, limit }) {
   return r.rows;
 }
 
+export async function listThreadsAcrossBoards(db, { limit }) {
+  const r = await db.query(
+    `select t.id,
+            t.board_slug,
+            t.subject,
+            t.subject_slug,
+            t.token,
+            t.created_at,
+            t.bumped_at,
+            b.visible_to_tags
+     from threads t
+     join boards b on b.slug = t.board_slug
+     order by t.bumped_at desc
+     limit $1`,
+    [limit],
+  );
+
+  return r.rows;
+}
+
 export async function listLatestPosts(db, { limit }) {
   const r = await db.query(
     `select p.id,

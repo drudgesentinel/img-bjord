@@ -128,6 +128,94 @@ describe("boards", () => {
     expect(ids).toContain(bThread.id);
   });
 
+  it("serves board RSS feed ordered by latest bump", async () => {
+    const a = await agent
+      .post("/api/boards/b/threads")
+      .set("content-type", "application/json")
+      .send({ subject: "A", body: "op A" });
+
+    const b = await agent
+      .post("/api/boards/b/threads")
+      .set("content-type", "application/json")
+      .send({ subject: "B", body: "op B" });
+
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(201);
+
+    const aThread = a.body.thread;
+    const bThread = b.body.thread;
+
+    const bump = await agent
+      .post(`/api/boards/b/${aThread.subject_slug}/${aThread.token}/replies`)
+      .set("content-type", "application/json")
+      .send({ body: "bump" });
+    expect(bump.status).toBe(201);
+
+    const res = await request(app).get("/api/boards/b/rss.xml?limit=10");
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/application\/rss\+xml/);
+    expect(res.text).toContain("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+    expect(res.text).toContain("<rss version=\"2.0\">");
+    expect(res.text).toContain("<channel>");
+
+    const aPath = `/boards/b/${aThread.subject_slug}/${aThread.token}`;
+    const bPath = `/boards/b/${bThread.subject_slug}/${bThread.token}`;
+    expect(res.text).toContain(aPath);
+    expect(res.text).toContain(bPath);
+    expect(res.text.indexOf(aPath)).toBeLessThan(res.text.indexOf(bPath));
+  });
+
+  it("serves global RSS feed across boards ordered by latest bump", async () => {
+    const createBoardRes = await agent
+      .post("/api/admin/boards")
+      .set("content-type", "application/json")
+      .send({ slug: "tech", name: "Technology" });
+    expect(createBoardRes.status).toBe(201);
+
+    const bThreadRes = await agent
+      .post("/api/boards/b/threads")
+      .set("content-type", "application/json")
+      .send({ subject: "B board", body: "op b" });
+
+    const techThreadRes = await agent
+      .post("/api/boards/tech/threads")
+      .set("content-type", "application/json")
+      .send({ subject: "Tech board", body: "op tech" });
+
+    expect(bThreadRes.status).toBe(201);
+    expect(techThreadRes.status).toBe(201);
+
+    const bThread = bThreadRes.body.thread;
+    const techThread = techThreadRes.body.thread;
+
+    const bump = await agent
+      .post(`/api/boards/b/${bThread.subject_slug}/${bThread.token}/replies`)
+      .set("content-type", "application/json")
+      .send({ body: "bump b" });
+    expect(bump.status).toBe(201);
+
+    const res = await request(app).get("/api/boards/rss.xml?limit=10");
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/application\/rss\+xml/);
+    expect(res.text).toContain("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+    expect(res.text).toContain("<rss version=\"2.0\">");
+    expect(res.text).toContain("<channel>");
+
+    const bPath = `/boards/b/${bThread.subject_slug}/${bThread.token}`;
+    const techPath = `/boards/tech/${techThread.subject_slug}/${techThread.token}`;
+    expect(res.text).toContain(bPath);
+    expect(res.text).toContain(techPath);
+    expect(res.text.indexOf(bPath)).toBeLessThan(res.text.indexOf(techPath));
+  });
+
+  it("returns 404 for unknown board RSS feed", async () => {
+    const res = await request(app).get("/api/boards/doesnotexist/rss.xml");
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe("board_not_found");
+  });
+
   it("returns 404 for unknown board", async () => {
     const res = await request(app).get("/api/boards/doesnotexist/threads");
     expect(res.status).toBe(404);

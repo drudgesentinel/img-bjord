@@ -13,6 +13,7 @@ import {
   getBoardAnnouncementForViewer,
   setBoardAnnouncement,
   listThreadsForViewer,
+  listThreadsAcrossBoardsForViewer,
   getThreadDetailByPretty,
   createReplyByPretty,
   deleteReplyByPretty,
@@ -23,6 +24,8 @@ import {
   serializeLatestPostListResponse,
   serializeCreateThreadResponse,
   serializeThreadListResponse,
+  serializeBoardRssResponse,
+  serializeGlobalRssResponse,
   serializeThreadDetailResponse,
   serializeReplyResponse,
 } from "./serializer.js";
@@ -105,6 +108,34 @@ router.get("/latest-posts", validateQuery(listLatestPostsQuerySchema), async (re
   }
 });
 
+router.get("/rss.xml", validateQuery(listThreadsQuerySchema), async (req, res, next) => {
+  try {
+    const limit = req.validatedQuery.limit ?? 20;
+
+    const threads = await listThreadsAcrossBoardsForViewer({
+      viewerUserId: req.session?.userId ?? null,
+      limit,
+    });
+
+    const forwardedProto = req.get("x-forwarded-proto");
+    const protocol = forwardedProto?.split(",")[0]?.trim() || req.protocol;
+    const host = req.get("host") || "localhost";
+    const siteUrl = `${protocol}://${host}`;
+    const selfUrl = `${siteUrl}${req.originalUrl}`;
+
+    const xml = serializeGlobalRssResponse({
+      threads,
+      siteUrl,
+      selfUrl,
+    });
+
+    res.set("content-type", "application/rss+xml; charset=utf-8");
+    res.send(xml);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post(
   "/:slug/threads",
   requireAuth,
@@ -169,6 +200,46 @@ router.get(
         limit,
       });
       res.json(serializeThreadListResponse(threads));
+    } catch (err) {
+      if (isDomainError(err, "board_not_found")) {
+        return res.status(404).json({ error: "board_not_found" });
+      }
+
+      next(err);
+    }
+  },
+);
+
+router.get(
+  "/:slug/rss.xml",
+  validateParams(boardParamsSchema),
+  validateQuery(listThreadsQuerySchema),
+  async (req, res, next) => {
+    try {
+      const { slug: boardSlug } = req.validatedParams;
+      const limit = req.validatedQuery.limit ?? 20;
+
+      const threads = await listThreadsForViewer({
+        boardSlug,
+        viewerUserId: req.session?.userId ?? null,
+        limit,
+      });
+
+      const forwardedProto = req.get("x-forwarded-proto");
+      const protocol = forwardedProto?.split(",")[0]?.trim() || req.protocol;
+      const host = req.get("host") || "localhost";
+      const siteUrl = `${protocol}://${host}`;
+      const selfUrl = `${siteUrl}${req.originalUrl}`;
+
+      const xml = serializeBoardRssResponse({
+        boardSlug,
+        threads,
+        siteUrl,
+        selfUrl,
+      });
+
+      res.set("content-type", "application/rss+xml; charset=utf-8");
+      res.send(xml);
     } catch (err) {
       if (isDomainError(err, "board_not_found")) {
         return res.status(404).json({ error: "board_not_found" });
