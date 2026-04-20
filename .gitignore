@@ -17,6 +17,7 @@ pnpm-debug.log*
 tmp/
 temp/
 *.tmp
+.precomp/
 
 # coverage
 coverage/
@@ -27,6 +28,7 @@ Thumbs.db
 .vscode/
 .idea/
 .github/
+AGENTS.md
 
 # Optional: if you later store uploads locally
 data/
