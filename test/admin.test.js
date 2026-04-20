@@ -131,6 +131,22 @@ describe("admin", () => {
     expect(del.body.error).toBe("last_admin");
   });
 
+  it("admin can fetch system disk stats", async () => {
+    const { adminAgent } = await createAndLoginAdminAgent();
+
+    const res = await adminAgent.get("/api/admin/system");
+    expect(res.status).toBe(200);
+    expect(typeof res.body.disk?.path).toBe("string");
+    expect(typeof res.body.disk?.mediaStorageDriver).toBe("string");
+    expect(typeof res.body.disk?.totalBytes).toBe("number");
+    expect(typeof res.body.disk?.availableBytes).toBe("number");
+    expect(typeof res.body.disk?.usedBytes).toBe("number");
+    expect(typeof res.body.disk?.usedPercent).toBe("number");
+    expect(res.body.disk.availableBytes).toBeGreaterThanOrEqual(0);
+    expect(res.body.disk.usedPercent).toBeGreaterThanOrEqual(0);
+    expect(res.body.disk.usedPercent).toBeLessThanOrEqual(100);
+  });
+
   it("admin can create and remove boards", async () => {
     const { adminAgent } = await createAndLoginAdminAgent();
 

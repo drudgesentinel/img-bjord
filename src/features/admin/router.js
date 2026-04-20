@@ -8,6 +8,7 @@ import {
   createBoard,
   deleteBoard,
   deleteUser,
+  getSystemStats,
   listBoards,
   listUsers,
   setBoardVisibility,
@@ -57,6 +58,15 @@ router.get("/boards", requireAdmin, async (req, res, next) => {
   try {
     const boards = await listBoards();
     res.json({ boards });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/system", requireAdmin, async (req, res, next) => {
+  try {
+    const system = await getSystemStats();
+    res.json(system);
   } catch (err) {
     next(err);
   }

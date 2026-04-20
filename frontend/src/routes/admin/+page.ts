@@ -17,14 +17,29 @@ type AdminBoard = {
   created_at: string;
 };
 
-export async function load({ fetch }) {
-  const [usersRes, boardsRes] = await Promise.all([fetch('/api/admin/users'), fetch('/api/admin/boards')]);
+type AdminSystem = {
+  disk: {
+    path: string;
+    mediaStorageDriver: string;
+    totalBytes: number;
+    availableBytes: number;
+    usedBytes: number;
+    usedPercent: number;
+  };
+};
 
-  if (usersRes.status === 401 || boardsRes.status === 401) {
+export async function load({ fetch }) {
+  const [usersRes, boardsRes, systemRes] = await Promise.all([
+    fetch('/api/admin/users'),
+    fetch('/api/admin/boards'),
+    fetch('/api/admin/system')
+  ]);
+
+  if (usersRes.status === 401 || boardsRes.status === 401 || systemRes.status === 401) {
     throw error(401, 'Sign in required');
   }
 
-  if (usersRes.status === 403 || boardsRes.status === 403) {
+  if (usersRes.status === 403 || boardsRes.status === 403 || systemRes.status === 403) {
     throw error(403, 'Admin access required');
   }
 
@@ -38,11 +53,18 @@ export async function load({ fetch }) {
     throw error(boardsRes.status, details || 'Failed to load admin boards');
   }
 
+  if (!systemRes.ok) {
+    const details = await systemRes.text();
+    throw error(systemRes.status, details || 'Failed to load admin system stats');
+  }
+
   const usersBody = (await usersRes.json()) as { users: AdminUser[] };
   const boardsBody = (await boardsRes.json()) as { boards: AdminBoard[] };
+  const systemBody = (await systemRes.json()) as AdminSystem;
 
   return {
     users: usersBody.users,
     boards: boardsBody.boards,
+    system: systemBody,
   };
 }

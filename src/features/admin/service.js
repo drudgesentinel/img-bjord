@@ -1,5 +1,7 @@
+import fs from "node:fs/promises";
 import { pool } from "../../db.js";
 import { DomainError } from "../../lib/domainErrors.js";
+import { getMediaStorageDriver, getUploadDir, isLocalMediaStorage } from "../../lib/mediaStorage.js";
 import * as repo from "./repository.js";
 
 function normalizeTags(tags) {
@@ -26,8 +28,48 @@ function normalizeBoardVisibilityTags(tags) {
   return normalizeTags(tags);
 }
 
+function safeNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export async function listUsers() {
   return repo.listUsers(pool);
+}
+
+export async function getSystemStats() {
+  const mediaStorageDriver = getMediaStorageDriver();
+  const diskPath = isLocalMediaStorage() ? getUploadDir() : process.cwd();
+
+  if (isLocalMediaStorage()) {
+    await fs.mkdir(diskPath, { recursive: true });
+  }
+
+  let totalBytes = 0;
+  let availableBytes = 0;
+  let usedBytes = 0;
+  let usedPercent = 0;
+
+  if (typeof fs.statfs === "function") {
+    const stats = await fs.statfs(diskPath);
+    const blockSize = safeNumber(stats.bsize);
+    totalBytes = Math.max(0, safeNumber(stats.blocks) * blockSize);
+    availableBytes = Math.max(0, safeNumber(stats.bavail) * blockSize);
+    const freeBytes = Math.max(0, safeNumber(stats.bfree) * blockSize);
+    usedBytes = Math.max(0, totalBytes - freeBytes);
+    usedPercent = totalBytes > 0 ? Math.min(100, Math.max(0, (usedBytes / totalBytes) * 100)) : 0;
+  }
+
+  return {
+    disk: {
+      path: diskPath,
+      mediaStorageDriver,
+      totalBytes,
+      availableBytes,
+      usedBytes,
+      usedPercent,
+    },
+  };
 }
 
 export async function deleteUser({ userId, actorUserId }) {

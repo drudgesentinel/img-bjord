@@ -19,7 +19,18 @@
     created_at: string;
   };
 
-  let { data } = $props<{ data: { users: AdminUser[]; boards: AdminBoard[] } }>();
+  type AdminSystem = {
+    disk: {
+      path: string;
+      mediaStorageDriver: string;
+      totalBytes: number;
+      availableBytes: number;
+      usedBytes: number;
+      usedPercent: number;
+    };
+  };
+
+  let { data } = $props<{ data: { users: AdminUser[]; boards: AdminBoard[]; system: AdminSystem } }>();
   let error = $state('');
   let busyUserId = $state<string | null>(null);
   let busyBoardSlug = $state<string | null>(null);
@@ -43,6 +54,19 @@
   function showSuccessModal(message: string) {
     successMessage = message;
     successModalOpen = true;
+  }
+
+  function formatBytes(bytes: number) {
+    if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let value = bytes;
+    let idx = 0;
+    while (value >= 1024 && idx < units.length - 1) {
+      value /= 1024;
+      idx += 1;
+    }
+    const rounded = value >= 100 ? value.toFixed(0) : value >= 10 ? value.toFixed(1) : value.toFixed(2);
+    return `${rounded} ${units[idx]}`;
   }
 
   async function removeUser(user: AdminUser) {
@@ -213,6 +237,35 @@
 {#if error}
   <p>{error}</p>
 {/if}
+
+<section>
+  <h2>System</h2>
+  <table>
+    <tbody>
+      <tr>
+        <th>Available disk</th>
+        <td>{formatBytes(data.system.disk.availableBytes)}</td>
+      </tr>
+      <tr>
+        <th>Disk path</th>
+        <td><code>{data.system.disk.path}</code></td>
+      </tr>
+      <tr>
+        <th>Storage driver</th>
+        <td>{data.system.disk.mediaStorageDriver}</td>
+      </tr>
+      <tr>
+        <th>Used / Total</th>
+        <td>
+          {formatBytes(data.system.disk.usedBytes)} / {formatBytes(data.system.disk.totalBytes)}
+          ({data.system.disk.usedPercent.toFixed(1)}%)
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<hr />
 
 {#if successModalOpen}
   <div class="modal-backdrop" role="presentation" onclick={() => (successModalOpen = false)}>
