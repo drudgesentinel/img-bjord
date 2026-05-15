@@ -126,9 +126,8 @@
     });
   }
 
-  function displayUsername(username?: string | null) {
-    if (!username) return 'anonymous';
-    return username.replace(/_\d+$/, '');
+  function displayUsername(_username?: string | null) {
+    return 'anonymous';
   }
 
   async function deleteThread() {
