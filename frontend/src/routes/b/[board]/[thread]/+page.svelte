@@ -237,7 +237,7 @@
         <strong>#{post.post_number}</strong>
         <strong class="author-name">
           {displayUsername(post.author_username)}
-          {#if post.author_is_admin}
+          {#if currentUserIsAdmin && $adminShowPostUsernames && post.author_is_admin}
             <span class="admin-icon" aria-label="admin" title="admin">♠</span>
           {/if}
         </strong>
