@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import { csrfFetch } from '$lib/csrf';
+  import { adminShowPostUsernames } from '$lib/postIdentityPrefs';
   import { siteConfig } from '$lib/siteConfig';
 
   let { children, data } = $props<{
@@ -20,9 +21,21 @@
   const segments = $derived(page.url.pathname.split('/').filter(Boolean));
   const board = $derived(segments[0] === 'boards' ? segments[1] : null);
   const subjectSlug = $derived(segments[2] ?? null);
+  const currentUserIsAdmin = $derived(Boolean(data.user?.is_admin));
+
+  $effect(() => {
+    if (!currentUserIsAdmin && $adminShowPostUsernames) {
+      adminShowPostUsernames.set(false);
+    }
+  });
 
   function displayUsername(username: string) {
     return username.replace(/_\d+$/, '');
+  }
+
+  function handleShowPostUsernamesChange(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    adminShowPostUsernames.set(input.checked);
   }
 
   async function logout() {
@@ -106,6 +119,17 @@
               <a href="/admin">Admin</a>
             {/if}
             <button type="button" onclick={logout}>Sign out</button>
+
+            {#if data.user.is_admin}
+              <label class="menu-toggle-row">
+                <input
+                  type="checkbox"
+                  checked={$adminShowPostUsernames}
+                  onchange={handleShowPostUsernamesChange}
+                />
+                Show post usernames
+              </label>
+            {/if}
           </div>
         </details>
       {:else}
@@ -211,6 +235,16 @@
 
   .menu-panel button {
     text-align: left;
+  }
+
+  .menu-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+    border-top: 1px solid #eee;
+    padding-top: 0.45rem;
+    margin-top: 0.15rem;
   }
 
   .login-link {

@@ -22,6 +22,7 @@
   import { page } from '$app/state';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
+  import { adminShowPostUsernames } from '$lib/postIdentityPrefs';
   import { siteConfig } from '$lib/siteConfig';
   import { buildThreadMeta } from '$lib/threadMeta';
   import {
@@ -190,8 +191,12 @@
     };
   }
 
-  function displayUsername(_username?: string | null) {
-    return 'anonymous';
+  function displayUsername(username?: string | null) {
+    if (!(currentUserIsAdmin && $adminShowPostUsernames)) {
+      return 'anonymous';
+    }
+    if (!username) return 'anonymous';
+    return username.replace(/_\d+$/, '');
   }
 
   function isUnauthorizedApiError(err: unknown): boolean {

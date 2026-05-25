@@ -1,7 +1,9 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
   import { api } from '$lib/api';
   import { csrfFetch } from '$lib/csrf';
+  import { adminShowPostUsernames } from '$lib/postIdentityPrefs';
   import {
     parseUrl,
     toEmbed,
@@ -30,6 +32,7 @@
 
   const MAX_EMBEDS_PER_POST = 3;
   const URL_RE = /https?:\/\/[^\s<>()]+/gi;
+  const currentUserIsAdmin = $derived(Boolean(page.data.user?.is_admin));
 
   function cleanCandidateUrl(raw: string): string {
     return raw.replace(/[),.;!?]+$/g, '');
@@ -126,8 +129,12 @@
     });
   }
 
-  function displayUsername(_username?: string | null) {
-    return 'anonymous';
+  function displayUsername(username?: string | null) {
+    if (!(currentUserIsAdmin && $adminShowPostUsernames)) {
+      return 'anonymous';
+    }
+    if (!username) return 'anonymous';
+    return username.replace(/_\d+$/, '');
   }
 
   async function deleteThread() {
