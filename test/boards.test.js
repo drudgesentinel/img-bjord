@@ -95,6 +95,28 @@ describe("boards", () => {
     expect(t0.token).toBeTruthy();
   });
 
+  it("supports page query for board thread listings", async () => {
+    for (let i = 1; i <= 25; i += 1) {
+      const createRes = await agent
+        .post("/api/boards/b/threads")
+        .set("content-type", "application/json")
+        .send({ subject: `Thread ${i}`, body: `op ${i}` });
+      expect(createRes.status).toBe(201);
+    }
+
+    const pageOneRes = await agent.get("/api/boards/b/threads?limit=20&page=1");
+    const pageTwoRes = await agent.get("/api/boards/b/threads?limit=20&page=2");
+
+    expect(pageOneRes.status).toBe(200);
+    expect(pageTwoRes.status).toBe(200);
+    expect(pageOneRes.body.threads.length).toBe(20);
+    expect(pageTwoRes.body.threads.length).toBe(5);
+
+    const pageOneIds = new Set(pageOneRes.body.threads.map((thread) => thread.id));
+    const overlapCount = pageTwoRes.body.threads.filter((thread) => pageOneIds.has(thread.id)).length;
+    expect(overlapCount).toBe(0);
+  });
+
   it("list threads returns newest bumped first within the board", async () => {
     const a = await agent
       .post("/api/boards/b/threads")

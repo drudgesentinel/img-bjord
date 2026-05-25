@@ -7,6 +7,9 @@
     data: {
       board: string;
       threads: Thread[];
+      page: number;
+      hasPreviousPage: boolean;
+      hasNextPage: boolean;
     };
   }>();
 
@@ -224,6 +227,27 @@
     padding: 1rem;
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
   }
+
+  .thread-pagination {
+    margin-top: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .thread-page-link {
+    text-decoration: none;
+  }
+
+  .thread-page-link.is-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .thread-page-current {
+    font-size: 0.9rem;
+    opacity: 0.85;
+  }
 </style>
 
 <hr />
@@ -248,6 +272,22 @@
         </li>
       {/each}
     </ul>
+
+    <nav class="thread-pagination" aria-label="Thread pages">
+      {#if data.hasPreviousPage}
+        <a class="thread-page-link" href={`/boards/${data.board}?page=${data.page - 1}`}>← Newer</a>
+      {:else}
+        <span class="thread-page-link is-disabled" aria-disabled="true">← Newer</span>
+      {/if}
+
+      <span class="thread-page-current">Page {data.page}</span>
+
+      {#if data.hasNextPage}
+        <a class="thread-page-link" href={`/boards/${data.board}?page=${data.page + 1}`}>Older →</a>
+      {:else}
+        <span class="thread-page-link is-disabled" aria-disabled="true">Older →</span>
+      {/if}
+    </nav>
   {/if}
 </section>
 

@@ -58,14 +58,15 @@ export async function insertThread(db, { boardSlug, subject, subjectSlug, token,
   return r.rows[0];
 }
 
-export async function listThreadsByBoard(db, { boardSlug, limit }) {
+export async function listThreadsByBoard(db, { boardSlug, limit, offset = 0 }) {
   const r = await db.query(
     `select id, board_slug, subject, subject_slug, token, created_at, bumped_at
      from threads
      where board_slug = $1
      order by bumped_at desc
-     limit $2`,
-    [boardSlug, limit],
+     limit $2
+     offset $3`,
+    [boardSlug, limit, offset],
   );
 
   return r.rows;

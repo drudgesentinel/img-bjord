@@ -98,14 +98,15 @@ export async function createThread({ boardSlug, subject, body, media = null, aut
   });
 }
 
-export async function listThreadsForViewer({ boardSlug, viewerUserId = null, limit = 20 }) {
+export async function listThreadsForViewer({ boardSlug, viewerUserId = null, limit = 20, page = 1 }) {
   const [board, viewer] = await Promise.all([repo.findBoardBySlug(pool, boardSlug), getViewerById(viewerUserId)]);
 
   if (!board || !canViewerAccessBoard(board, viewer)) {
     throw new DomainError("board_not_found");
   }
 
-  return repo.listThreadsByBoard(pool, { boardSlug, limit });
+  const offset = (page - 1) * limit;
+  return repo.listThreadsByBoard(pool, { boardSlug, limit, offset });
 }
 
 export async function listThreadsAcrossBoardsForViewer({ viewerUserId = null, limit = 20 }) {

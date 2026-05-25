@@ -64,6 +64,7 @@ const replyDeleteParamsSchema = z
 const listThreadsQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(100).optional(),
+    page: z.coerce.number().int().min(1).optional(),
   })
   .strict();
 
@@ -193,11 +194,13 @@ router.get(
     try {
       const { slug: boardSlug } = req.validatedParams;
       const limit = req.validatedQuery.limit ?? 20;
+      const page = req.validatedQuery.page ?? 1;
 
       const threads = await listThreadsForViewer({
         boardSlug,
         viewerUserId: req.session?.userId ?? null,
         limit,
+        page,
       });
       res.json(serializeThreadListResponse(threads));
     } catch (err) {
