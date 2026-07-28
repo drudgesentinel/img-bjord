@@ -23,7 +23,8 @@
         try {
           const body = (await res.json()) as { error?: string };
           if (body.error === 'account_pending_approval') {
-            throw new Error('Account is pending admin approval');
+            authError = 'Your account isn\'t activated. Contact an admin.';
+            return;
           }
           details = body.error ?? '';
         } catch {
