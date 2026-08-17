@@ -705,7 +705,7 @@
         {replying ? 'Replying...' : 'Post reply'}
       </button>
     {:else}
-      <a class="login-required-button" href="/login">Please log in to post</a>
+      <a class="login-required-button" href="/login?redirect={page.url.pathname}">Please log in to post</a>
     {/if}
   </div>
 

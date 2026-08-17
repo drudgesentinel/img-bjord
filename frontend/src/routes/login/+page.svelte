@@ -1,11 +1,14 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
   import { csrfFetch } from '$lib/csrf';
 
   let loginUsername = $state('');
   let loginPassword = $state('');
   let authBusy = $state(false);
   let authError = $state('');
+
+  const redirect = $derived(page.url.searchParams.get('redirect') || '/');
 
   async function login() {
     authBusy = true;
@@ -34,7 +37,7 @@
       }
 
       await invalidateAll();
-      await goto('/');
+      await goto(redirect);
     } catch (e) {
       authError = e instanceof Error ? e.message : 'Login failed';
     } finally {
