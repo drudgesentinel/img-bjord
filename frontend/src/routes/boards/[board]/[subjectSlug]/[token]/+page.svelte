@@ -68,6 +68,7 @@
 
   const currentUserIsAdmin = $derived(Boolean(page.data.user?.is_admin));
   const currentUserId = $derived(page.data.user?.id ?? null);
+  const isLoggedIn = $derived(Boolean(currentUserId));
   const postsByNumber = $derived(new Map(data.posts.map((post) => [post.post_number, post])));
   const threadMeta = $derived(buildThreadMeta({ thread: data.thread, posts: data.posts, site: siteConfig }));
 
@@ -673,13 +674,14 @@
       maxlength="5000"
       rows="8"
       onpaste={handleBodyPaste}
+      disabled={!isLoggedIn}
     ></textarea>
   </label>
 
   <div>
     <label>
       Media
-      <input type="file" accept="image/*,video/mp4,video/webm" onchange={handleMediaChange} />
+      <input type="file" accept="image/*,video/mp4,video/webm" onchange={handleMediaChange} disabled={!isLoggedIn} />
     </label>
     <p><small>Tip: you can also paste an image into the body field.</small></p>
   </div>
@@ -698,9 +700,13 @@
   {/if}
 
   <div>
-    <button onclick={submitReply} disabled={replying}>
-      {replying ? 'Replying...' : 'Post reply'}
-    </button>
+    {#if isLoggedIn}
+      <button onclick={submitReply} disabled={replying}>
+        {replying ? 'Replying...' : 'Post reply'}
+      </button>
+    {:else}
+      <a class="login-required-button" href="/login">Please log in to post</a>
+    {/if}
   </div>
 
   {#if error}
@@ -931,5 +937,20 @@
 
   .op-reply-button {
     margin-left: 0.05rem;
+  }
+
+  .login-required-button {
+    display: inline-block;
+    background: #dc2626;
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+
+  .login-required-button:hover {
+    background: #b91c1c;
+    text-decoration: none;
   }
 </style>
