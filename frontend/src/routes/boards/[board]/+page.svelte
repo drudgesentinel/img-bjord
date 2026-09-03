@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { api } from '$lib/api';
   import type { CreateThreadResponse, Thread } from '$lib/types';
 
@@ -21,6 +22,9 @@
   let mediaFile = $state<File | null>(null);
   let mediaPreviewUrl = $state('');
   let mediaPreviewIsVideo = $state(false);
+
+  const currentUserId = $derived(page.data.user?.id ?? null);
+  const isLoggedIn = $derived(Boolean(currentUserId));
 
   function isUnauthorizedApiError(err: unknown): boolean {
     return err instanceof Error && /^API error 401\b/.test(err.message);
@@ -124,7 +128,7 @@
 
   <div class="form-row">
     <label class="field-label" for="thread-subject">Subject</label>
-    <input id="thread-subject" bind:value={subject} maxlength="100" />
+    <input id="thread-subject" bind:value={subject} maxlength="100" disabled={!isLoggedIn} />
   </div>
 
   <div class="form-row">
@@ -136,13 +140,14 @@
       maxlength="5000"
       rows="8"
       onpaste={handleBodyPaste}
+      disabled={!isLoggedIn}
     ></textarea>
   </div>
 
   <div>
     <label>
       Media
-      <input type="file" accept="image/*,video/mp4,video/webm" onchange={handleMediaChange} />
+      <input type="file" accept="image/*,video/mp4,video/webm" onchange={handleMediaChange} disabled={!isLoggedIn} />
     </label>
     <p><small>Tip: you can also paste an image into the body field.</small></p>
   </div>
@@ -160,9 +165,13 @@
     </div>
   {/if}
 
-  <button onclick={createThread} disabled={creating}>
-    {creating ? 'Posting...' : 'Create thread'}
-  </button>
+  {#if isLoggedIn}
+    <button onclick={createThread} disabled={creating}>
+      {creating ? 'Posting...' : 'Create thread'}
+    </button>
+  {:else}
+    <a class="login-required-button" href="/login?redirect={page.url.pathname}">Please log in to post</a>
+  {/if}
 
   {#if error}
     <p>{error}</p>
@@ -247,6 +256,21 @@
   .thread-page-current {
     font-size: 0.9rem;
     opacity: 0.85;
+  }
+
+  .login-required-button {
+    display: inline-block;
+    background: #dc2626;
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+
+  .login-required-button:hover {
+    background: #b91c1c;
+    text-decoration: none;
   }
 </style>
 
